@@ -12,4 +12,4 @@ services:
       - key: NODE_ENV
         value: production
       - key: ENCRYPTION_KEY
-        generateValue: true
+        value: e7b76fb5b263e422c9cef2a2ea58a640160bc485d79d106f35695b24a51fbe15
