@@ -3,7 +3,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { callManager } from './callManager';
+import { callManager } from './callManager.js';
 
 export const telephonyRouter = Router();
 
