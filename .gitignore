@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+freellmapi/server/node_modules/
+freellmapi/client/node_modules/
+
+# Build outputs
+dist/
+dist-electron/
+freellmapi/server/dist/
+freellmapi/client/dist/
+
+# OS & Temp
+.DS_Store
+*.log
+scratch/
+
+# Environment & Databases
+.env
+freellmapi/server/data/*.db
+freellmapi/server/data/freeapi.db

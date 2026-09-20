@@ -1,0 +1,38 @@
+{
+  "keys": [
+    {
+      "platform": "groq",
+      "key": "ENV_GROQ_KEY_1",
+      "label": "anya-groq-1"
+    },
+    {
+      "platform": "groq",
+      "key": "ENV_GROQ_KEY_2",
+      "label": "anya-groq-2"
+    },
+    {
+      "platform": "google",
+      "key": "ENV_GEMINI_KEY_1",
+      "label": "anya-gemini-1"
+    },
+    {
+      "platform": "openrouter",
+      "key": "ENV_OPENROUTER_KEY_1",
+      "label": "anya-openrouter-1"
+    }
+  ],
+  "customProviders": [
+    {
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "apiKey": "ENV_GROQ_KEY_1",
+      "label": "groq-ultra-speed",
+      "models": [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant"
+      ]
+    }
+  ],
+  "routing": {
+    "strategy": "balanced"
+  }
+}
