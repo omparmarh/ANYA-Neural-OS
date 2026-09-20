@@ -221,11 +221,11 @@ geminiRouter.post(/^\/models\/(.+):generateContent$/, (req, res) => {
   void handleGenerate(req, res, false);
 });
 
-geminiRouter.post(/^\/models\/(.+):streamGenerateContent$/, (req, res) => {
+geminiRouter.post(/^\/models\/(.+):streamGenerateContent$/, (req: Request, res: Response) => {
   void handleGenerate(req, res, true);
 });
 
-geminiRouter.post(/^\/models\/(.+):countTokens$/, (req, res) => {
+geminiRouter.post(/^\/models\/(.+):countTokens$/, (req: Request, res: Response) => {
   if (!authenticate(req, res)) return;
   const body = parseGenerateBody(req, res);
   if (!body) return;

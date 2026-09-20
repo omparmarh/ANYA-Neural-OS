@@ -94,7 +94,7 @@ function ollamaModel(model: ReturnType<typeof buildModelListing>['models'][numbe
   };
 }
 
-ollamaRouter.get('/api/tags', (req, res) => {
+ollamaRouter.get('/api/tags', (req: Request, res: Response) => {
   if (!authorize(req, res)) return;
   const { models } = buildModelListing();
   // Ollama clients always pick an explicit model from this list, so advertise
@@ -117,7 +117,7 @@ ollamaRouter.get('/api/tags', (req, res) => {
   res.json({ models: [auto, ...models.filter(model => model.available === 1).map(ollamaModel)] });
 });
 
-ollamaRouter.get('/api/version', (req, res) => {
+ollamaRouter.get('/api/version', (req: Request, res: Response) => {
   if (!authorize(req, res)) return;
   // Plain semver: a prerelease suffix would compare BELOW 0.9.9 for clients
   // that gate features on a minimum Ollama version.
@@ -125,7 +125,7 @@ ollamaRouter.get('/api/version', (req, res) => {
 });
 
 const showSchema = z.object({ model: z.string().optional(), name: z.string().optional() }).passthrough();
-ollamaRouter.post('/api/show', (req, res) => {
+ollamaRouter.post('/api/show', (req: Request, res: Response) => {
   if (!authorize(req, res)) return;
   const parsed = showSchema.safeParse(req.body);
   if (!parsed.success || !(parsed.data.model || parsed.data.name)) {
@@ -378,7 +378,7 @@ function ollamaWire(model: string): InboundChatWire {
   };
 }
 
-ollamaRouter.post('/api/chat', (req, res) => {
+ollamaRouter.post('/api/chat', (req: Request, res: Response) => {
   if (!authorize(req, res)) return;
   const parsed = chatSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -493,7 +493,7 @@ function generateWire(model: string): InboundChatWire {
   };
 }
 
-ollamaRouter.post('/api/generate', (req, res) => {
+ollamaRouter.post('/api/generate', (req: Request, res: Response) => {
   if (!authorize(req, res)) return;
   const parsed = generateSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -586,7 +586,7 @@ async function handleEmbed(req: Request, res: Response, legacy: boolean): Promis
   }
 }
 
-ollamaRouter.post('/api/embed', (req, res) => {
+ollamaRouter.post('/api/embed', (req: Request, res: Response) => {
   void handleEmbed(req, res, false);
 });
 
