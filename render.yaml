@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: anya-telephony-backend
+    env: node
+    plan: free
+    rootDir: freellmapi/server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: NODE_ENV
+        value: production
