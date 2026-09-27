@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ExternalLink, Play, Globe, MessageSquare, Music, Video, MapPin, Phone, Mail } from 'lucide-react';
 import { executeAppLaunch } from '../lib/toolDispatcher';
 
@@ -13,6 +13,15 @@ export default function AppLauncherWidget({ appName, query, directUrl }) {
     if (lower.includes('mail') || lower.includes('email')) return <Mail className="w-5 h-5 text-blue-400" />;
     return <Globe className="w-5 h-5 text-cyan-400" />;
   };
+
+  // Auto-launch on mount so the user never has to click "Open"
+  useEffect(() => {
+    if (directUrl) {
+      try { window.open(directUrl, '_blank', 'noopener,noreferrer'); } catch {}
+    } else {
+      executeAppLaunch(appName, query).catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLaunch = () => {
     if (directUrl) {

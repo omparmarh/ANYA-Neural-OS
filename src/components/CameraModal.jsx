@@ -11,13 +11,10 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
   const [mode, setMode] = useState('live_chat'); // 'snapshot' | 'live_chat'
   const [isListeningLive, setIsListeningLive] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
-  const [streaming, setStreaming] = useState(false);
   const recognitionRef = useRef(null);
-  const streamTimerRef = useRef(null);
   const isAnyaSpeakingRef = useRef(false);
   const onCaptureRef = useRef(onCapture);
 
-  // Keep the latest onCapture in a ref so the streaming loop always calls the freshest handler
   useEffect(() => {
     onCaptureRef.current = onCapture;
   }, [onCapture]);
@@ -29,26 +26,16 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
       if (mode === 'live_chat' && isListeningLive) {
         stopLiveSpeech();
       }
-      // Pause the continuous video stream while Aanya speaks so we don't
-      // flood the model with frames while she is replying.
-      if (mode === 'live_chat' && streaming) {
-        stopVideoStream();
-      }
     };
 
     const handleSpeechStopped = () => {
       isAnyaSpeakingRef.current = false;
       if (isOpen && mode === 'live_chat' && !isListeningLive) {
-        // Wait briefly for audio system to clear to avoid transcribing echo
         setTimeout(() => {
           if (isOpen && mode === 'live_chat' && !isAnyaSpeakingRef.current) {
             startLiveSpeech();
           }
         }, 800);
-      }
-      // Resume the continuous video stream once Aanya finishes speaking
-      if (isOpen && mode === 'live_chat' && !streaming) {
-        startVideoStream();
       }
     };
 
@@ -59,7 +46,7 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
       window.removeEventListener('anya-speech-started', handleSpeechStarted);
       window.removeEventListener('anya-speech-stopped', handleSpeechStopped);
     };
-  }, [isOpen, mode, isListeningLive, streaming]);
+  }, [isOpen, mode, isListeningLive]);
 
   // Handle switching to live_chat mode automatically starting mic
   useEffect(() => {
@@ -67,13 +54,8 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
       if (!isListeningLive && !isAnyaSpeakingRef.current) {
         startLiveSpeech();
       }
-      // Start the continuous video stream as soon as live mode opens
-      if (!streaming) {
-        startVideoStream();
-      }
     } else {
       stopLiveSpeech();
-      stopVideoStream();
     }
   }, [isOpen, mode]);
 
@@ -81,7 +63,6 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
     if (!isOpen) {
       stopCamera();
       stopLiveSpeech();
-      stopVideoStream();
       setCapturedImage(null);
       setLiveTranscript('');
       return;
@@ -92,7 +73,6 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
     return () => {
       stopCamera();
       stopLiveSpeech();
-      stopVideoStream();
     };
   }, [isOpen, facingMode]);
 
@@ -118,7 +98,7 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
       }
     } catch (err) {
       console.error('Camera access error:', err);
-      setError('Unable to access camera. Please check macOS camera permissions.');
+      setError('Unable to access camera. Please check camera permissions.');
     }
   };
 
@@ -152,7 +132,7 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
 
   const handleConfirm = () => {
     if (capturedImage) {
-      onCapture({
+      onCaptureRef.current({
         base64: capturedImage,
         type: 'image/jpeg',
         name: `camera_snapshot_${Date.now()}.jpg`,
@@ -166,7 +146,7 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
     setFacingMode(prev => (prev === 'user' ? 'environment' : 'user'));
   };
 
-  // ─── Live Audio / Speech in Camera Viewport ────────────────────────────────
+  // ─── Live Audio / Speech & Vision in Camera Viewport ──────────────────────
   const stopLiveSpeech = () => {
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch {}
@@ -208,7 +188,7 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
           const snapshotBase64 = getFrameDataUrl();
           triggerHaptic([60, 40, 60]);
 
-          onCapture({
+          onCaptureRef.current({
             base64: snapshotBase64,
             type: 'image/jpeg',
             name: `live_vision_${Date.now()}.jpg`,
@@ -235,50 +215,19 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
     }
   };
 
-  // ─── Continuous Video Stream Loop ──────────────────────────────────────────
-  // Sends a fresh frame to the model every ~1.2s so the conversation feels like
-  // a real live video call instead of a sequence of still snapshots.
-  const startVideoStream = () => {
-    if (streamTimerRef.current) return;
-    setStreaming(true);
-
-    const tick = () => {
-      if (!videoRef.current) return;
-      const dataUrl = getFrameDataUrl();
-      if (!dataUrl) return;
-
-      triggerHaptic(20);
-      onCaptureRef.current(
-        {
-          base64: dataUrl,
-          type: 'image/jpeg',
-          name: `live_stream_${Date.now()}.jpg`,
-          previewUrl: dataUrl
-        },
-        'Analyze this live video frame and describe what you observe or execute requested actions.'
-      );
-    };
-
-    // First frame immediately, then keep streaming on a gentle cadence
-    tick();
-    streamTimerRef.current = setInterval(tick, 1200);
-  };
-
-  const stopVideoStream = () => {
-    if (streamTimerRef.current) {
-      clearInterval(streamTimerRef.current);
-      streamTimerRef.current = null;
-    }
-    setStreaming(false);
+  const triggerInstantVisionAnalysis = () => {
+    const dataUrl = getFrameDataUrl();
+    if (!dataUrl) return;
+    triggerHaptic(40);
+    onCaptureRef.current({
+      base64: dataUrl,
+      type: 'image/jpeg',
+      name: `live_frame_${Date.now()}.jpg`,
+      previewUrl: dataUrl
+    }, "Analyze this live camera view and describe what you observe or execute requested actions.");
   };
 
   const toggleLiveSpeech = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('Speech recognition is not supported in this browser environment.');
-      return;
-    }
-
     if (isListeningLive) {
       stopLiveSpeech();
     } else {
@@ -355,8 +304,8 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
               <div className="flex justify-between items-start">
                 <span className="w-4 h-4 border-t-2 border-l-2 border-cyan-400" />
                 <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/60 backdrop-blur text-[9px] font-mono text-cyan-400 border border-cyan-500/30">
-                  <span className={`w-1.5 h-1.5 rounded-full ${streaming ? 'bg-emerald-400 animate-ping' : 'bg-red-500 animate-ping'}`} />
-                  <span>{streaming ? 'LIVE STREAM • SENDING FRAMES' : 'REC 1080P • REAL-TIME FEED'}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span>LIVE VISION & VOICE FEED</span>
                 </div>
                 <span className="w-4 h-4 border-t-2 border-r-2 border-cyan-400" />
               </div>
@@ -371,7 +320,7 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
               <div className="flex justify-between items-end">
                 <span className="w-4 h-4 border-b-2 border-l-2 border-cyan-400" />
                 <span className="text-[9px] font-mono text-slate-400 tracking-wider">
-                  {mode === 'live_chat' ? 'SPEAK TO ANALYZE REAL-TIME FRAME' : 'TAP SNAPSHOT TO CAPTURE'}
+                  {mode === 'live_chat' ? 'SPEAK OR TAP ANALYZE FRAME' : 'TAP SNAPSHOT TO CAPTURE'}
                 </span>
                 <span className="w-4 h-4 border-b-2 border-r-2 border-cyan-400" />
               </div>
@@ -392,6 +341,14 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
 
           {mode === 'live_chat' ? (
             <div className="flex items-center gap-2">
+              <button
+                onClick={triggerInstantVisionAnalysis}
+                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold transition-all shadow-sm"
+                title="Ask Aanya to analyze current video frame"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Analyze Frame</span>
+              </button>
               <button
                 onClick={toggleLiveSpeech}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-mono text-xs font-bold transition-all shadow-lg ${

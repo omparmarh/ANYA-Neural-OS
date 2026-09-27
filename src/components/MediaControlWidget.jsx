@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Play, Pause, SkipForward, ExternalLink, Radio, Disc } from 'lucide-react';
 import { executeMediaControl } from '../lib/toolDispatcher';
 
@@ -9,6 +9,15 @@ export default function MediaControlWidget({ action = 'play', app = 'ytmusic', q
   const appTitle = (app.toLowerCase().includes('youtube') && !app.toLowerCase().includes('music'))
     ? 'YouTube'
     : (app.toLowerCase().includes('spotify') ? 'Spotify' : 'YouTube Music');
+
+  // Auto-open the media tab on mount so the user never has to click
+  useEffect(() => {
+    if (url) {
+      try { window.open(url, '_blank', 'noopener,noreferrer'); } catch {}
+    } else if (query) {
+      executeMediaControl('play', app, query).catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTogglePlay = async () => {
     setLoading(true);
