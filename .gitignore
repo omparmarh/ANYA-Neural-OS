@@ -24,6 +24,9 @@ android-screener/local.properties
 android-screener/app/src/main/assets/
 android-screener/app/src/main/res/
 
+# FreeLLMAPI local key config (keys live in .env)
+freellmapi/freellmapi.config.json
+
 # OS & Temp
 .DS_Store
 *.log
