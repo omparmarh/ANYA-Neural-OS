@@ -15,7 +15,7 @@ import {
   getSettings, saveSettings,
   getNotes, createNote, updateNote, deleteNote,
   getTasks, createTask, updateTask, deleteTask,
-  isAuthenticated, getCurrentUser
+  isAuthenticated, getCurrentUser, getActiveUser
 } from './lib/db.js';
 import {
   thinkOnDevice, speakOnDevice, stopSpeaking,
@@ -1039,6 +1039,9 @@ export default function App() {
     setShowAuthModal(false);
     // Will reset to local state via auth state change
   };
+
+  // Resolve the display user for the header/sidebar even in guest mode
+  const activeUser = currentUser || getActiveUser() || { name: 'Boss', role: 'Commander' };
 
   if (isAuthLoading) {
     return (

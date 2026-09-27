@@ -1043,6 +1043,34 @@ export const getCurrentUser = async () => {
 };
 
 /**
+ * Get the active user from the cached session (sync, no throw).
+ * Supabase stores the session in localStorage under sb-<ref>-auth-token,
+ * so we can read it synchronously for display purposes.
+ * Returns null if no user is logged in.
+ * @returns {Object|null}
+ */
+export const getActiveUser = () => {
+  try {
+    const keys = Object.keys(localStorage).filter(k => k.includes('-auth-token'));
+    for (const key of keys) {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      const user = parsed?.user || parsed?.session?.user;
+      if (user) {
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          role: 'resident'
+        };
+      }
+    }
+  } catch {}
+  return null;
+};
+
+/**
  * Utility functions for localStorage fallback compatibility
  */
 export const getLocalChats = () => {
