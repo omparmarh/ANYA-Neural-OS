@@ -32,17 +32,17 @@ export default function Sidebar({
       <aside className={`fixed lg:static top-0 bottom-0 left-0 z-40 w-72 bg-obsidian-950/95 border-r border-cyan-500/20 flex flex-col transition-transform duration-300 ease-in-out select-none ${
         isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
-        {/* Top: New Session & Close for Mobile */}
+        {/* Top: New Chat / Session & Close for Mobile */}
         <div className="p-4 border-b border-slate-850 flex items-center justify-between gap-2">
           <button
             onClick={() => {
               onNewThread();
               if (window.innerWidth < 1024) onClose();
             }}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold tracking-wide transition-all shadow-cyan-glow/20 active:scale-98"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500/30 hover:to-blue-600/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold tracking-wider uppercase transition-all shadow-cyan-glow/30 active:scale-98"
           >
-            <Plus className="w-4 h-4" />
-            <span>New Session</span>
+            <Plus className="w-4 h-4 text-cyan-400" />
+            <span>+ New Chat</span>
           </button>
 
           <button

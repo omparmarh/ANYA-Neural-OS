@@ -9,6 +9,7 @@ import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import CameraModal from './components/CameraModal';
 import CallScreenerWidget from './components/CallScreenerWidget';
 import AuthModal from './components/AuthModal';
+import SplashLoader from './components/SplashLoader';
 import {
   getChats, createChat, updateChat, deleteChat,
   getMessages, addMessage, updateMessage, deleteMessage,
@@ -32,6 +33,7 @@ import { initTelephonyBridge, getActiveCalls } from './lib/telephonyBridge';
 import { supabase, onAuthStateChange } from './lib/supabase.js';
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
   // Global State
   const [settings, setSettings] = useState({});
   const [threads, setThreads] = useState([]);
@@ -56,7 +58,37 @@ export default function App() {
   // Active Widgets Data
   const [activeTelephonyCalls, setActiveTelephonyCalls] = useState([]);
 
-  // Telephony bridge listener
+  // Mobile back button handler (popstate) to go back 1 step instead of exiting app
+  useEffect(() => {
+    // Push initial history state so back button can be intercepted
+    try { window.history.pushState({ page: 'anya' }, ''); } catch {}
+
+    const handlePopState = (e) => {
+      if (isSidebarOpen) {
+        e.preventDefault();
+        setIsSidebarOpen(false);
+        try { window.history.pushState({ page: 'anya' }, ''); } catch {}
+      } else if (isSettingsOpen) {
+        e.preventDefault();
+        setIsSettingsOpen(false);
+        try { window.history.pushState({ page: 'anya' }, ''); } catch {}
+      } else if (isPrivacyOpen) {
+        e.preventDefault();
+        setIsPrivacyOpen(false);
+        try { window.history.pushState({ page: 'anya' }, ''); } catch {}
+      } else if (isCameraOpen) {
+        e.preventDefault();
+        setIsCameraOpen(false);
+        try { window.history.pushState({ page: 'anya' }, ''); } catch {}
+      } else {
+        // Prevent accidental app close on mobile, push state back
+        try { window.history.pushState({ page: 'anya' }, ''); } catch {}
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isSidebarOpen, isSettingsOpen, isPrivacyOpen, isCameraOpen]);
   useEffect(() => {
     initTelephonyBridge(settings.remoteUrl || 'http://localhost:3001');
 
@@ -1042,6 +1074,10 @@ export default function App() {
 
   // Resolve the display user for the header/sidebar even in guest mode
   const activeUser = currentUser || getActiveUser() || { name: 'Boss', role: 'Commander' };
+
+  if (showSplash) {
+    return <SplashLoader onComplete={() => setShowSplash(false)} />;
+  }
 
   if (isAuthLoading) {
     return (

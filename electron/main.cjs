@@ -315,19 +315,21 @@ function createWindow() {
   }
 
   // Load production bundle or dev server
-  const distPath = path.join(__dirname, '../dist/index.html');
+  const distPath = path.resolve(__dirname, '../dist/index.html');
 
-  // Try connecting to Vite dev server first (ports 5173 / 5174), fallback to bundled dist
-  mainWindow.loadURL('http://localhost:5173').catch(() => {
-    mainWindow.loadURL('http://localhost:5174').catch(() => {
-      console.warn('[ANYA] Dev servers not reachable, loading bundled dist...');
-      if (fs.existsSync(distPath)) {
-        mainWindow.loadFile(distPath);
-      } else {
-        mainWindow.loadURL('http://localhost:5173');
-      }
+  if (app.isPackaged) {
+    mainWindow.loadFile(distPath);
+  } else {
+    // Try connecting to Vite dev server first (ports 5173 / 5174), fallback to bundled dist
+    mainWindow.loadURL('http://localhost:5173').catch(() => {
+      mainWindow.loadURL('http://localhost:5174').catch(() => {
+        console.warn('[ANYA] Dev servers not reachable, loading bundled dist...');
+        if (fs.existsSync(distPath)) {
+          mainWindow.loadFile(distPath);
+        }
+      });
     });
-  });
+  }
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.warn('[ANYA] WebContents load failed:', errorDescription);
