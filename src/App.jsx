@@ -11,13 +11,15 @@ import CallScreenerWidget from './components/CallScreenerWidget';
 import AuthModal from './components/AuthModal';
 import SplashLoader from './components/SplashLoader';
 import StartupBootScreen from './components/StartupBootScreen';
+import { Loader2 } from 'lucide-react';
 import {
   getChats, createChat, updateChat, deleteChat,
   getMessages, addMessage, updateMessage, deleteMessage,
   getSettings, saveSettings,
   getNotes, createNote, updateNote, deleteNote,
   getTasks, createTask, updateTask, deleteTask,
-  isAuthenticated, getCurrentUser, getActiveUser
+  getCurrentUser, getActiveUser,
+  getLocalChats, saveLocalChats, getSavedSettings
 } from './lib/db.js';
 import {
   thinkOnDevice, speakOnDevice, stopSpeaking,
@@ -221,8 +223,20 @@ export default function App() {
       }
     });
 
+    const handleLocalAuthChange = (e) => {
+      const user = e.detail;
+      if (user) {
+        setIsAuthenticated(true);
+        setCurrentUser(user);
+        setShowAuthModal(false);
+        loadInitialData();
+      }
+    };
+    window.addEventListener('anya-auth-changed', handleLocalAuthChange);
+
     return () => {
       subscription?.unsubscribe?.();
+      window.removeEventListener('anya-auth-changed', handleLocalAuthChange);
     };
   }, []);
 
@@ -491,7 +505,7 @@ export default function App() {
         }
       }
       // Save to localStorage
-      saveLocalChats(threads);
+      saveLocalChats(updated);
     }
   };
 
@@ -546,7 +560,6 @@ export default function App() {
           setNotes(prev => [savedNote, ...prev]);
         } else {
           setNotes(prev => [newNote, ...prev]);
-          saveLocalChats(notes); // Actually should be saveNotes but reusing for now
         }
 
         toolWidgets.push({ tool: 'create_note', note: newNote });
@@ -568,7 +581,6 @@ export default function App() {
           setTasks(prev => [savedTask, ...prev]);
         } else {
           setTasks(prev => [newTask, ...prev]);
-          saveLocalChats(tasks); // Reusing for now
         }
 
         toolWidgets.push({ tool: 'add_task', task: newTask });
@@ -1021,7 +1033,6 @@ export default function App() {
       });
     } else {
       setNotes(prev => [newNote, ...prev]);
-      saveLocalChats(notes); // Reusing for now
     }
   };
 
@@ -1049,7 +1060,6 @@ export default function App() {
       });
     } else {
       setTasks(prev => [newTask, ...prev]);
-      saveLocalChats(tasks); // Reusing for now
     }
   };
 

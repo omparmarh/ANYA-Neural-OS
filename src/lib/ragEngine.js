@@ -10,20 +10,50 @@
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { keyManager } from './neuralEngine.js';
 
-// Initialize Gemini for Embeddings
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-const model = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+// Resolve Gemini key from keyManager, env pools, or single key
+function getGeminiKey() {
+  try {
+    const key = keyManager?.getValidKey?.('gemini');
+    if (key) return key;
+  } catch {}
+  try {
+    const envKeys = import.meta.env.VITE_GEMINI_KEYS || '';
+    const first = envKeys.split(',').map(k => k.trim()).filter(Boolean)[0];
+    if (first) return first;
+  } catch {}
+  return import.meta.env.VITE_GEMINI_API_KEY || '';
+}
 
-// Advanced RAG Vector Store using Embeddings
+// Tokenize text into words for TF-IDF fallback vectorization
+function tokenize(text) {
+  return (text || '')
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2);
+}
+
+// Advanced RAG Vector Store using Neural Embeddings with On-Device TF-IDF Fallback
 class RAGVectorStore {
   constructor() {
-    this.documents = []; // { id, title, content, url, embedding }
+    this.documents = []; // { id, title, content, url, embedding, tfMap }
   }
 
   async getEmbedding(text) {
-    const result = await model.embedContent(text);
-    return result.embedding.values;
+    const apiKey = getGeminiKey();
+    if (!apiKey) return null;
+
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'models/gemini-embedding-001' });
+      const result = await model.embedContent(text.slice(0, 2048));
+      return result.embedding.values;
+    } catch (err) {
+      console.warn('[RAG] Neural embedding failed, falling back to on-device TF-IDF:', err.message);
+      return null;
+    }
   }
 
   cosineSimilarity(vecA, vecB) {
@@ -35,12 +65,29 @@ class RAGVectorStore {
       normA += vecA[i] * vecA[i];
       normB += vecB[i] * vecB[i];
     }
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    const denom = Math.sqrt(normA) * Math.sqrt(normB);
+    return denom === 0 ? 0 : dotProduct / denom;
+  }
+
+  // On-device TF-IDF scoring fallback
+  computeTfidfScore(queryTokens, docTokens, docCount) {
+    if (!docTokens || docTokens.length === 0 || !queryTokens || queryTokens.length === 0) return 0;
+    const docTf = {};
+    for (const t of docTokens) docTf[t] = (docTf[t] || 0) + 1;
+    let score = 0;
+    for (const q of queryTokens) {
+      if (docTf[q]) {
+        score += (docTf[q] / docTokens.length) * (1 + Math.log(docCount + 1));
+      }
+    }
+    return score;
   }
 
   async addDocument(id, title, content, url = '') {
-    const embedding = await this.getEmbedding(`${title} ${content}`);
-    this.documents.push({ id, title, content, url, embedding });
+    const fullText = `${title} ${content}`;
+    const embedding = await this.getEmbedding(fullText);
+    const tokens = tokenize(fullText);
+    this.documents.push({ id, title, content, url, embedding, tokens });
   }
 
   clear() {
@@ -48,11 +95,21 @@ class RAGVectorStore {
   }
 
   async query(queryText, topK = 3) {
+    if (this.documents.length === 0) return [];
+
     const queryEmbedding = await this.getEmbedding(queryText);
-    const scored = this.documents.map(doc => ({
-      ...doc,
-      score: this.cosineSimilarity(queryEmbedding, doc.embedding)
-    }));
+    const queryTokens = tokenize(queryText);
+
+    const scored = this.documents.map(doc => {
+      let score = 0;
+      if (queryEmbedding && doc.embedding && queryEmbedding.length === doc.embedding.length) {
+        score = this.cosineSimilarity(queryEmbedding, doc.embedding);
+      } else {
+        score = this.computeTfidfScore(queryTokens, doc.tokens, this.documents.length);
+      }
+      return { ...doc, score };
+    });
+
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, topK);
   }

@@ -45,8 +45,8 @@ export const DEFAULT_SETTINGS = {
   elevenLabsVoiceId: 'pNInz6obpgDQGcFmaJgB', // Adam / ANYA core voice
   hapticsEnabled: true,
   userName: 'Boss',
-  geminiModel: 'gemini-3.6-flash',
-  groqModel: 'llama-3.3-70b-versatile',
+  geminiModel: 'gemini-3.8-flash',
+  groqModel: 'qwen/qwen3.8-27b',
 };
 
 // Key Manager with cooldown timestamps
@@ -240,12 +240,12 @@ If the user's request is purely conversational, answer directly with brilliance 
 
 // Direct Provider Call: Google Gemini Flash
 async function callGemini(messages, apiKey, userSettings, attachment = null) {
-  let requestedModel = userSettings.geminiModel || 'gemini-3.6-flash';
-  if (!requestedModel || requestedModel.includes('gemini-2.0') || requestedModel.includes('gemini-1.5') || requestedModel.includes('gemini-2.5-flash')) {
-    requestedModel = 'gemini-3.6-flash';
+  let requestedModel = userSettings.geminiModel || 'gemini-3.8-flash';
+  if (!requestedModel || requestedModel.includes('gemini-2.') || requestedModel.includes('gemini-1.') || requestedModel.includes('gemini-3.6')) {
+    requestedModel = 'gemini-3.8-flash';
   }
 
-  const modelCandidates = Array.from(new Set([requestedModel, 'gemini-3.6-flash', 'gemini-3.5-flash']));
+  const modelCandidates = Array.from(new Set([requestedModel, 'gemini-3.8-flash']));
   let lastErr = null;
 
   for (const model of modelCandidates) {
@@ -301,6 +301,9 @@ async function callGemini(messages, apiKey, userSettings, attachment = null) {
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       const usage = data.usageMetadata || {};
+      if (usage.thoughtsTokenCount) {
+        console.log(`[ANYA Neural Thinking] ${usage.thoughtsTokenCount} thought reasoning tokens processed`);
+      }
       recordTokenUsage('gemini', usage.promptTokenCount || 50, usage.candidatesTokenCount || 50);
 
       return text;
@@ -313,9 +316,14 @@ async function callGemini(messages, apiKey, userSettings, attachment = null) {
   throw lastErr || new Error('All Gemini models failed');
 }
 
-// Direct Provider Call: Groq Llama 3.3 / 3.1
+// Direct Provider Call: Groq
 async function callGroq(messages, apiKey, userSettings) {
-  const model = userSettings.groqModel || 'llama-3.3-70b-versatile';
+  const modelCandidates = Array.from(new Set([
+    userSettings.groqModel || 'qwen/qwen3.8-27b',
+    'qwen/qwen3.8-27b',
+    'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b'
+  ]));
   const url = 'https://api.groq.com/openai/v1/chat/completions';
 
   const groqMessages = [
@@ -326,34 +334,48 @@ async function callGroq(messages, apiKey, userSettings) {
     }))
   ];
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model,
-      messages: groqMessages,
-      temperature: 0.6,
-      max_tokens: 2048
-    })
-  });
+  let lastErr = null;
+  for (const model of modelCandidates) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages: groqMessages,
+          temperature: 0.6,
+          max_tokens: 2048
+        })
+      });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    if (response.status === 429) {
-      keyManager.markCooldown(apiKey, 10);
+      if (!response.ok) {
+        const errText = await response.text();
+        if (response.status === 429) {
+          keyManager.markCooldown(apiKey, 10);
+        }
+        throw new Error(`Groq API Error (${response.status}): ${errText}`);
+      }
+
+      const data = await response.json();
+      const choice = data.choices?.[0];
+      const text = choice?.message?.content || '';
+      if (choice?.message?.reasoning) {
+        console.log('[ANYA Neural Thinking] Groq native reasoning captured');
+      }
+      const usage = data.usage || {};
+      recordTokenUsage('groq', usage.prompt_tokens || 40, usage.completion_tokens || 40);
+
+      return text;
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[ANYA] Groq model ${model} attempt failed:`, err.message);
     }
-    throw new Error(`Groq API Error (${response.status}): ${errText}`);
   }
 
-  const data = await response.json();
-  const text = data.choices?.[0]?.message?.content || '';
-  const usage = data.usage || {};
-  recordTokenUsage('groq', usage.prompt_tokens || 40, usage.completion_tokens || 40);
-
-  return text;
+  throw lastErr || new Error('All Groq models failed');
 }
 
 // Direct Provider Call: OpenRouter
@@ -368,7 +390,7 @@ async function callOpenRouter(messages, apiKey, userSettings) {
     }))
   ];
 
-  const models = ['google/gemini-2.0-flash-exp:free', 'meta-llama/llama-3.3-70b-instruct:free', 'openrouter/auto'];
+  const models = ['openrouter/auto', 'qwen/qwen3.8-27b:free', 'nvidia/nemotron-3.5-lightning:free'];
   let lastErr = null;
 
   for (const targetModel of models) {
@@ -450,7 +472,7 @@ export async function callFreeLLMAPI(messages, userSettings, attachment = null) 
   ];
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 35000);
+  const timeoutId = setTimeout(() => controller.abort(), 3500);
 
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {

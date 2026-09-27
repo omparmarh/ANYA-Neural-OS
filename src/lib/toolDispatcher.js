@@ -15,45 +15,45 @@ const _isMac = typeof window !== 'undefined' && window?.electronAPI?.platform ==
 // ─── macOS native app name map ────────────────────────────────────────────────
 // Maps our internal appKey → the exact name macOS uses for `open -a`
 const MAC_APP_NAMES = {
-  whatsapp:    'WhatsApp',
-  spotify:     'Spotify',
-  youtube:     'YouTube',
-  slack:       'Slack',
-  telegram:    'Telegram',
-  discord:     'Discord',
-  notion:      'Notion',
-  figma:       'Figma',
-  xcode:       'Xcode',
-  vscode:      'Visual Studio Code',
-  mail:        'Mail',
-  gmail:       'Mail',
-  safari:      'Safari',
-  chrome:      'Google Chrome',
-  firefox:     'Firefox',
-  maps:        'Maps',
-  facetime:    'FaceTime',
-  messages:    'Messages',
-  sms:         'Messages',
-  imessage:    'Messages',
-  notes:       'Notes',
-  calendar:    'Calendar',
-  reminders:   'Reminders',
-  photos:      'Photos',
-  finder:      'Finder',
-  music:       'Music',
-  podcasts:    'Podcasts',
-  appstore:    'App Store',
-  calculator:  'Calculator',
-  terminal:    'Terminal',
-  preview:     'Preview',
-  zoom:        'zoom.us',
-  teams:       'Microsoft Teams',
-  word:        'Microsoft Word',
-  excel:       'Microsoft Excel',
-  powerpoint:  'Microsoft PowerPoint',
-  skype:       'Skype',
-  instagram:   'Instagram',
-  twitter:     'Twitter',
+  whatsapp: 'WhatsApp',
+  spotify: 'Spotify',
+  youtube: 'YouTube',
+  slack: 'Slack',
+  telegram: 'Telegram',
+  discord: 'Discord',
+  notion: 'Notion',
+  figma: 'Figma',
+  xcode: 'Xcode',
+  vscode: 'Visual Studio Code',
+  mail: 'Mail',
+  gmail: 'Mail',
+  safari: 'Safari',
+  chrome: 'Google Chrome',
+  firefox: 'Firefox',
+  maps: 'Maps',
+  facetime: 'FaceTime',
+  messages: 'Messages',
+  sms: 'Messages',
+  imessage: 'Messages',
+  notes: 'Notes',
+  calendar: 'Calendar',
+  reminders: 'Reminders',
+  photos: 'Photos',
+  finder: 'Finder',
+  music: 'Music',
+  podcasts: 'Podcasts',
+  appstore: 'App Store',
+  calculator: 'Calculator',
+  terminal: 'Terminal',
+  preview: 'Preview',
+  zoom: 'zoom.us',
+  teams: 'Microsoft Teams',
+  word: 'Microsoft Word',
+  excel: 'Microsoft Excel',
+  powerpoint: 'Microsoft PowerPoint',
+  skype: 'Skype',
+  instagram: 'Instagram',
+  twitter: 'Twitter',
 };
 
 
@@ -117,7 +117,7 @@ export async function requestNotificationPermission() {
   if ('Notification' in window && Notification.permission !== 'granted') {
     try {
       await Notification.requestPermission();
-    } catch {}
+    } catch { }
   }
 }
 
@@ -130,7 +130,7 @@ export function sendNotification(title, body) {
         icon: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="40" fill="%2300f0ff"/%3E%3C/svg%3E',
         badge: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="40" fill="%2300f0ff"/%3E%3C/svg%3E',
       });
-    } catch {}
+    } catch { }
   }
 }
 
@@ -206,7 +206,7 @@ export function parseToolCalls(text) {
         if (parsed.tool) {
           tools.push(parsed);
         }
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -446,7 +446,7 @@ export async function executeAppLaunch(app, query = '') {
 
       // If it's WhatsApp with a phone/text deep-link, try the URL scheme directly
       if (appKey === 'whatsapp' && url && !url.startsWith('http')) {
-        setTimeout(() => { try { window.location.href = url; } catch {} }, 800);
+        setTimeout(() => { try { window.location.href = url; } catch { } }, 800);
       }
 
       return { success: true, app: name, url: targetUrl, method: result?.method || 'native' };
@@ -459,10 +459,10 @@ export async function executeAppLaunch(app, query = '') {
         // NEVER use window.location.href — that navigates THIS page away.
         // Open in a new tab instead; if the scheme is not handled the
         // browser just ignores it and we fall back to the web URL below.
-        try { window.open(url, '_blank', 'noopener,noreferrer'); } catch {}
+        try { window.open(url, '_blank', 'noopener,noreferrer'); } catch { }
         if (fallbackUrl) {
           setTimeout(() => {
-            try { window.open(fallbackUrl, '_blank', 'noopener,noreferrer'); } catch {}
+            try { window.open(fallbackUrl, '_blank', 'noopener,noreferrer'); } catch { }
           }, 1200);
         }
       } else {
@@ -471,7 +471,7 @@ export async function executeAppLaunch(app, query = '') {
     }
   } catch (e) {
     console.warn('[ANYA] App launch error:', e);
-    try { window.open(targetUrl, '_blank', 'noopener,noreferrer'); } catch {}
+    try { window.open(targetUrl, '_blank', 'noopener,noreferrer'); } catch { }
   }
 
   return { success: true, app: name, url: targetUrl };
@@ -524,7 +524,7 @@ export async function executeWebSearch(query, engine = 'google', openExternal = 
   }
 
   if (openExternal) {
-    try { window.open(url, '_blank', 'noopener,noreferrer'); } catch {}
+    try { window.open(url, '_blank', 'noopener,noreferrer'); } catch { }
     return { success: true, engine, query, url, opened: true };
   }
 
@@ -602,7 +602,7 @@ export async function generatePDF(title, markdownContent, theme = 'cyberpunk') {
 </body>
 </html>`);
         printWin.document.close();
-        setTimeout(() => { try { printWin.print(); } catch {} }, 500);
+        setTimeout(() => { try { printWin.print(); } catch { } }, 500);
         return { success: true, method: 'browser_print' };
       } else {
         const blob = new Blob([`# ${safeTitle}\n\n${markdownContent}`], { type: 'text/markdown' });
@@ -631,10 +631,10 @@ export async function generatePPT(title, slides = [], htmlContent = '', theme = 
   try {
     const pptx = new pptxgen();
     pptx.layout = 'LAYOUT_16x9';
-    pptx.title = title || 'ANYA Presentation';
+    pptx.title = title || '';
 
     // Theme configuration
-    const isCyber = theme === 'cyberpunk' || true;
+    const isCyber = theme !== 'minimalist' && theme !== 'corporate';
     const bgColor = isCyber ? '05070C' : 'FFFFFF';
     const primaryColor = isCyber ? '00F0FF' : '0284C7';
     const textColor = isCyber ? 'E2E8F0' : '1E293B';
@@ -670,7 +670,7 @@ export async function generatePPT(title, slides = [], htmlContent = '', theme = 
     // Title Slide
     const firstSlide = pptx.addSlide();
     firstSlide.background = { color: bgColor };
-    
+
     firstSlide.addShape(pptx.shapes.RECTANGLE, {
       x: 0, y: 0, w: '100%', h: 0.15,
       fill: { color: primaryColor }
@@ -715,15 +715,28 @@ export async function generatePPT(title, slides = [], htmlContent = '', theme = 
         line: { color: primaryColor, width: 1 }
       });
 
-      const bullets = Array.isArray(s.bullets) ? s.bullets : (s.content ? [s.content] : ['Strategic Overview Point']);
-      const bulletItems = bullets.map(b => ({
-        text: `•  ${b}`,
-        options: { fontSize: 16, color: textColor, breakLine: true, lineSpacing: 26 }
-      }));
+      // AI sends slides as { title, content: ["Bullet A", "Bullet B"] }
+      // Guard: if s.content is already an array, use it directly — do NOT re-wrap it.
+      let bullets;
+      if (Array.isArray(s.bullets) && s.bullets.length > 0) {
+        bullets = s.bullets;
+      } else if (Array.isArray(s.content) && s.content.length > 0) {
+        bullets = s.content;
+      } else if (typeof s.content === 'string' && s.content.trim()) {
+        bullets = s.content.split(/\n|(?<=\.)\s+(?=[A-Z•\-])/).map(b => b.trim()).filter(Boolean);
+      } else {
+        bullets = ['Key insight for this section'];
+      }
 
+      const bulletItems = bullets.map(b => ({
+        text: `\u2022  ${String(b).trim()}`,
+        options: { fontSize: 15, color: textColor, breakLine: true }
+      }));
+      // lineSpacingMultiple must be at top-level, NOT inside per-run options
       slide.addText(bulletItems, {
         x: 1.2, y: 1.7, w: 10.9, h: 4.5,
-        fontFace: 'Arial'
+        fontFace: 'Arial',
+        lineSpacingMultiple: 1.55
       });
 
       slide.addText(`ANYA Neural OS // Slide ${idx + 2}`, {
@@ -734,10 +747,31 @@ export async function generatePPT(title, slides = [], htmlContent = '', theme = 
       });
     });
 
-    const fileName = `${(title || 'ANYA_Presentation').replace(/[^a-zA-Z0-9_-]/g, '_')}.pptx`;
-    await pptx.writeFile({ fileName });
+    const safeFileName = `${(title || 'ANYA_Presentation').replace(/[^a-zA-Z0-9_-]/g, '_')}.pptx`;
 
-    return { success: true, method: 'pptxgenjs', fileName };
+    // Electron: delegate to main-process IPC (saves to ~/Desktop and opens natively)
+    if (_isElectron && window?.electronAPI?.generatePPT) {
+      try {
+        const result = await window.electronAPI.generatePPT(title, slideData, htmlContent, theme);
+        if (result && result.success) return result;
+      } catch (electronErr) {
+        console.warn('[ANYA PPT] Electron IPC failed, falling back to browser download:', electronErr);
+      }
+    }
+
+    // Browser: write as Blob and trigger download via <a> anchor element.
+    // More reliable than pptx.writeFile() which can be blocked by popup-blockers.
+    const pptxBlob = await pptx.write({ outputType: 'blob' });
+    const blobUrl = URL.createObjectURL(pptxBlob);
+    const dlAnchor = document.createElement('a');
+    dlAnchor.href = blobUrl;
+    dlAnchor.download = safeFileName;
+    dlAnchor.style.display = 'none';
+    document.body.appendChild(dlAnchor);
+    dlAnchor.click();
+    setTimeout(() => { document.body.removeChild(dlAnchor); URL.revokeObjectURL(blobUrl); }, 2000);
+
+    return { success: true, method: 'browser_download', fileName: safeFileName };
   } catch (err) {
     console.error('[ANYA PPT Generation Error]:', err);
     return { success: false, error: err.message };
@@ -791,7 +825,7 @@ export async function executeWhatsAppAction(contact, message = '', action = 'mes
     const fallback = action === 'call'
       ? `https://web.whatsapp.com/`
       : `https://web.whatsapp.com/`;
-    try { window.open(fallback, '_blank', 'noopener,noreferrer'); } catch {}
+    try { window.open(fallback, '_blank', 'noopener,noreferrer'); } catch { }
     return { success: false, error: 'WhatsApp automation requires the desktop app (macOS).' };
   }
   return window.electronAPI.whatsappAction(contact, message, action);

@@ -5,13 +5,20 @@
 
 let _telephonySocket = null;
 let _activeCalls = new Map();
+let _reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 /**
  * Initialize WebSocket connection to Telephony Daemon
  * @param {string} serverUrl - Telephony WebSocket URL (default: ws://localhost:3001)
  */
 export function initTelephonyBridge(serverUrl = 'ws://localhost:3001') {
-  if (_telephonySocket) return;
+  if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && !serverUrl.startsWith('https') && !serverUrl.startsWith('wss')) {
+    // Insecure ws:// is blocked on https:// origins by browsers
+    return;
+  }
+
+  if (_telephonySocket || _reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
 
   try {
     const wsUrl = serverUrl.replace(/^http/, 'ws') + '/ws/telephony';
@@ -19,6 +26,7 @@ export function initTelephonyBridge(serverUrl = 'ws://localhost:3001') {
 
     _telephonySocket.onopen = () => {
       console.log('[ANYA Telephony] Connected to live call screener daemon.');
+      _reconnectAttempts = 0;
     };
 
     _telephonySocket.onmessage = (event) => {
@@ -31,9 +39,12 @@ export function initTelephonyBridge(serverUrl = 'ws://localhost:3001') {
     };
 
     _telephonySocket.onclose = () => {
-      console.log('[ANYA Telephony] Socket closed. Reconnecting in 5s...');
       _telephonySocket = null;
-      setTimeout(() => initTelephonyBridge(serverUrl), 5000);
+      _reconnectAttempts++;
+      if (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        const delay = Math.min(1000 * Math.pow(2, _reconnectAttempts), 30000);
+        setTimeout(() => initTelephonyBridge(serverUrl), delay);
+      }
     };
 
     _telephonySocket.onerror = () => {

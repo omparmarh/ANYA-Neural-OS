@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Cpu, ShieldCheck, Zap, Terminal } from 'lucide-react';
 
 export default function StartupBootScreen({ onComplete }) {
@@ -6,12 +6,15 @@ export default function StartupBootScreen({ onComplete }) {
   const [telemetryText, setTelemetryText] = useState('INITIALIZING QUANTUM RUNTIME...');
   const [progress, setProgress] = useState(12);
 
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
   useEffect(() => {
     const sequence = [
-      { delay: 300, phase: 1, progress: 35, text: 'LOADING NEURAL WEIGHTS & CORE MEMORY...' },
-      { delay: 700, phase: 2, progress: 68, text: 'SYNCHRONIZING SECURE TELEMETRY & MULTI-MODEL MATRIX...' },
-      { delay: 1200, phase: 3, progress: 92, text: 'ANYA NEURAL OS v2.0 ONLINE // SYSTEM READY' },
-      { delay: 1700, phase: 4, progress: 100, text: 'WELCOME COMMANDER. ACCESS GRANTED.' },
+      { delay: 250, phase: 1, progress: 38, text: 'LOADING NEURAL WEIGHTS & CORE MEMORY...' },
+      { delay: 600, phase: 2, progress: 72, text: 'SYNCHRONIZING SECURE TELEMETRY & MULTI-MODEL MATRIX...' },
+      { delay: 1050, phase: 3, progress: 95, text: 'ANYA NEURAL OS v2.0 ONLINE // SYSTEM READY' },
+      { delay: 1450, phase: 4, progress: 100, text: 'WELCOME COMMANDER. ACCESS GRANTED.' },
     ];
 
     const timers = sequence.map(step =>
@@ -23,14 +26,14 @@ export default function StartupBootScreen({ onComplete }) {
     );
 
     const finishTimer = setTimeout(() => {
-      onComplete?.();
-    }, 2100);
+      onCompleteRef.current?.();
+    }, 1800);
 
     return () => {
       timers.forEach(clearTimeout);
       clearTimeout(finishTimer);
     };
-  }, [onComplete]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#030509] text-white select-none overflow-hidden font-sans">
