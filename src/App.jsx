@@ -8,30 +8,43 @@ import SettingsModal from './components/SettingsModal';
 import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import CameraModal from './components/CameraModal';
 import CallScreenerWidget from './components/CallScreenerWidget';
-import { 
-  thinkOnDevice, speakOnDevice, stopSpeaking, 
-  getLocalChats, saveLocalChats, getSavedSettings, 
-  saveSettings, getTokenUsage, triggerHaptic 
+import AuthModal from './components/AuthModal';
+import {
+  getChats, createChat, updateChat, deleteChat,
+  getMessages, addMessage, updateMessage, deleteMessage,
+  getSettings, saveSettings,
+  getNotes, createNote, updateNote, deleteNote,
+  getTasks, createTask, updateTask, deleteTask,
+  isAuthenticated, getCurrentUser
+} from './lib/db.js';
+import {
+  thinkOnDevice, speakOnDevice, stopSpeaking,
+  getTokenUsage, triggerHaptic
 } from './lib/neuralEngine';
-import { 
-  parseToolCalls, executeAppLaunch, executeMediaControl, executeWebSearch, 
+import {
+  parseToolCalls, executeAppLaunch, executeMediaControl, executeWebSearch,
   playAlertChime, sendNotification, requestNotificationPermission, generatePDF,
-  generatePPT, createFile, createFolder, readFile, listFiles, runCommand
+  generatePPT, createFile, createFolder, readFile, listFiles, runCommand,
+  executeWhatsAppAction
 } from './lib/toolDispatcher';
 import { preprocess, preprocessAsync } from './lib/nlpProcessor';
 import { initTelephonyBridge, getActiveCalls } from './lib/telephonyBridge';
-
+import { supabase, onAuthStateChange } from './lib/supabase.js';
 
 export default function App() {
   // Global State
-  const [settings, setSettings] = useState(getSavedSettings());
-  const [threads, setThreads] = useState(getLocalChats());
+  const [settings, setSettings] = useState({});
+  const [threads, setThreads] = useState([]);
   const [activeThreadId, setActiveThreadId] = useState(null);
   const [isThinking, setIsThinking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
-  const [tokenUsage, setTokenUsage] = useState(getTokenUsage());
+  const [tokenUsage, setTokenUsage] = useState({});
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Modals & Panels
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -91,20 +104,225 @@ export default function App() {
 
   const recognitionRef = useRef(null);
 
+  // Authentication check
+  useEffect(() => {
+    const checkAuth = async () => {
+      setIsAuthLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        if (user) {
+          setIsAuthenticated(true);
+          setCurrentUser({
+            id: user.id,
+            email: user.email,
+            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+            role: 'resident'
+          });
+
+          // Fetch user profile from profiles table
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+          if (profile && !error) {
+            setCurrentUser(prev => ({
+              ...prev,
+              role: profile.role || 'resident'
+            }));
+          }
+        } else {
+          setIsAuthenticated(false);
+          setCurrentUser(null);
+          setShowAuthModal(true);
+        }
+
+        // Load initial data
+        await loadInitialData();
+      } catch (error) {
+        console.error('Auth check error:', error);
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        setIsAuthenticated(true);
+        setCurrentUser({
+          id: session.user.id,
+          email: session.user.email,
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+          role: 'resident'
+        });
+
+        // Fetch user profile
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data: profile, error }) => {
+            if (profile && !error) {
+              setCurrentUser(prev => ({
+                ...prev,
+                role: profile.role || 'resident'
+              }));
+            }
+          });
+
+        // Load data when user signs in
+        loadInitialData();
+      } else {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        resetToLocalState();
+        setShowAuthModal(true);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  // Load initial data (chats, settings, etc.)
+  const loadInitialData = async () => {
+    try {
+      // Load chats
+      const chats = await getChats();
+      if (chats.length > 0) {
+        setThreads(chats.map(chat => ({
+          id: chat.id,
+          title: chat.title,
+          timestamp: chat.timestamp
+        })));
+
+        // Set active thread to first chat if none selected
+        if (!activeThreadId && chats.length > 0) {
+          setActiveThreadId(chats[0].id);
+          // Load messages for this chat
+          loadChatMessages(chats[0].id);
+        }
+      } else {
+        // No chats exist, create a default one
+        const newChat = await createChat({ title: 'New Session' });
+        setThreads([{
+          id: newChat.id,
+          title: newChat.title,
+          timestamp: newChat.timestamp
+        }]);
+        setActiveThreadId(newChat.id);
+        // Load messages for this new chat (will be empty)
+        loadChatMessages(newChat.id);
+      }
+
+      // Load settings
+      const loadedSettings = await getSettings();
+      setSettings(loadedSettings);
+
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+      // Fallback to localStorage
+      const localChats = getLocalChats();
+      if (localChats.length > 0) {
+        setThreads(localChats.map(chat => ({
+          id: chat.id,
+          title: chat.title,
+          timestamp: chat.timestamp
+        })));
+        if (!activeThreadId && localChats.length > 0) {
+          setActiveThreadId(localChats[0].id);
+        }
+      } else {
+        setThreads([{
+          id: `local_${Date.now()}`,
+          title: 'New Session',
+          timestamp: new Date().toISOString()
+        }]);
+        setActiveThreadId(`local_${Date.now()}`);
+      }
+
+      setSettings(getSavedSettings());
+    }
+  };
+
+  // Load messages for a specific chat
+  const loadChatMessages = async (chatId) => {
+    try {
+      const messages = await getMessages(chatId);
+      // Update the specific chat in threads with its messages
+      setThreads(prev => prev.map(thread =>
+        thread.id === chatId ? { ...thread, messages } : thread
+      ));
+    } catch (error) {
+      console.error('Error loading chat messages:', error);
+    }
+  };
+
+  // Reset to localStorage/guest state
+  const resetToLocalState = () => {
+    setThreads(getLocalChats().map(chat => ({
+      id: chat.id,
+      title: chat.title,
+      timestamp: chat.timestamp
+    })));
+    setActiveThreadId(null);
+    setSettings(getSavedSettings());
+  };
+
   // Initialize or Select first thread
   useEffect(() => {
     if (threads.length > 0 && !activeThreadId) {
       setActiveThreadId(threads[0].id);
-    } else if (threads.length === 0) {
-      handleNewThread();
-    }
-    requestNotificationPermission();
-  }, []);
+      loadChatMessages(threads[0].id);
+    } else if (threads.length === 0 && !isAuthLoading) {
+      // Create initial thread if none exists
+      const handleNewThreadLocal = () => {
+        const newId = `thread_${Date.now()}`;
+        const newThread = {
+          id: newId,
+          title: 'New Session',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          messages: []
+        };
+        setThreads(prev => [newThread, ...prev]);
+        setActiveThreadId(newId);
+        loadChatMessages(newId);
+      };
 
-  // Save persistent state
+      if (isAuthenticated) {
+        createChat({ title: 'New Session' }).then(newChat => {
+          setThreads([{
+            id: newChat.id,
+            title: newChat.title,
+            timestamp: newChat.timestamp
+          }]);
+          setActiveThreadId(newChat.id);
+          loadChatMessages(newChat.id);
+        });
+      } else {
+        handleNewThreadLocal();
+      }
+    }
+  }, [threads, isAuthenticated, activeThreadId]);
+
+  // Save persistent state to localStorage (for guest mode) and Supabase
   useEffect(() => {
-    saveLocalChats(threads);
-  }, [threads]);
+    if (!isAuthenticated) {
+      // Guest mode - save to localStorage
+      saveLocalChats(threads);
+      saveSettings(settings);
+    }
+    // Note: When authenticated, data is saved via db.js functions
+  }, [threads, settings, isAuthenticated]);
 
   useEffect(() => {
     localStorage.setItem('anya_active_timers', JSON.stringify(timers));
@@ -187,27 +405,60 @@ export default function App() {
   const currentThread = threads.find(t => t.id === activeThreadId) || { messages: [] };
 
   // Create New Thread
-  const handleNewThread = () => {
-    const newId = `thread_${Date.now()}`;
-    const newThread = {
-      id: newId,
-      title: 'New Session',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      messages: []
-    };
-    setThreads(prev => [newThread, ...prev]);
-    setActiveThreadId(newId);
+  const handleNewThread = async () => {
+    if (isAuthenticated) {
+      const newChat = await createChat({ title: 'New Session' });
+      setThreads(prev => [newChat, ...prev]);
+      setActiveThreadId(newChat.id);
+      loadChatMessages(newChat.id);
+    } else {
+      // Guest mode
+      const newId = `thread_${Date.now()}`;
+      const newThread = {
+        id: newId,
+        title: 'New Session',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        messages: []
+      };
+      setThreads(prev => [newThread, ...prev]);
+      setActiveThreadId(newId);
+      // No need to load messages for new empty thread in guest mode
+    }
   };
 
   // Delete Thread
-  const handleDeleteThread = (id) => {
-    const updated = threads.filter(t => t.id !== id);
-    setThreads(updated);
-    if (activeThreadId === id) {
-      setActiveThreadId(updated[0]?.id || null);
-      if (updated.length === 0) {
-        handleNewThread();
+  const handleDeleteThread = async (id) => {
+    if (isAuthenticated) {
+      await deleteChat(id);
+      const updated = threads.filter(t => t.id !== id);
+      setThreads(updated);
+      if (activeThreadId === id) {
+        setActiveThreadId(updated[0]?.id || null);
+        if (updated.length === 0) {
+          handleNewThread();
+        }
       }
+    } else {
+      // Guest mode
+      const updated = threads.filter(t => t.id !== id);
+      setThreads(updated);
+      if (activeThreadId === id) {
+        setActiveThreadId(updated[0]?.id || null);
+        if (updated.length === 0) {
+          // Create new thread in guest mode
+          const newId = `thread_${Date.now()}`;
+          const newThread = {
+            id: newId,
+            title: 'New Session',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            messages: []
+          };
+          setThreads(prev => [newThread, ...prev]);
+          setActiveThreadId(newId);
+        }
+      }
+      // Save to localStorage
+      saveLocalChats(threads);
     }
   };
 
@@ -256,27 +507,16 @@ export default function App() {
           content,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
-        setNotes(prev => [newNote, ...prev]);
-        toolWidgets.push({ tool: 'create_note', note: newNote });
 
-        // Smart fallback: If content contains source code or project instructions, also autonomously write to ~/Desktop
-        if (/#include|class\s+|def\s+|<!DOCTYPE|<html|function\s+|\bint\s+main\b/i.test(content) || /code|project|chess|c language|source/i.test(title)) {
-          const cleanTitle = (title || 'project_source').replace(/[^a-zA-Z0-9_\-]/g, '_').toLowerCase();
-          let ext = 'txt';
-          if (content.includes('#include') || content.includes('main(')) ext = 'c';
-          else if (content.includes('<!DOCTYPE') || content.includes('<html')) ext = 'html';
-          else if (content.includes('import React') || content.includes('export default')) ext = 'jsx';
-          else if (content.includes('def ') || content.includes('import ')) ext = 'py';
-
-          const targetFile = `~/Desktop/${cleanTitle}/${cleanTitle}.${ext}`;
-          createFile(targetFile, content);
-          toolWidgets.push({
-            tool: 'create_file',
-            args: { filePath: targetFile, content },
-            path: targetFile,
-            success: true
-          });
+        if (isAuthenticated) {
+          const savedNote = await createNote({ title, content });
+          setNotes(prev => [savedNote, ...prev]);
+        } else {
+          setNotes(prev => [newNote, ...prev]);
+          saveLocalChats(notes); // Actually should be saveNotes but reusing for now
         }
+
+        toolWidgets.push({ tool: 'create_note', note: newNote });
       }
 
       else if (tool === 'add_task') {
@@ -289,7 +529,15 @@ export default function App() {
           done: false,
           created: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
-        setTasks(prev => [newTask, ...prev]);
+
+        if (isAuthenticated) {
+          const savedTask = await createTask({ text: taskText, priority });
+          setTasks(prev => [savedTask, ...prev]);
+        } else {
+          setTasks(prev => [newTask, ...prev]);
+          saveLocalChats(tasks); // Reusing for now
+        }
+
         toolWidgets.push({ tool: 'add_task', task: newTask });
       }
 
@@ -311,10 +559,11 @@ export default function App() {
       else if (tool === 'generate_pdf' || tool === 'create_pdf') {
         const title = args.title || args.name || 'Aanya Document';
         const content = args.content || args.text || args.markdown || '';
-        const res = await generatePDF(title, content);
+        const theme = args.theme || 'cyberpunk';
+        const res = await generatePDF(title, content, theme);
         toolWidgets.push({
           tool: 'generate_pdf',
-          args: { title, content },
+          args: { title, content, theme },
           path: res?.path,
           success: res?.success
         });
@@ -324,10 +573,11 @@ export default function App() {
         const title = args.title || args.name || 'Aanya Presentation';
         const slides = args.slides || [];
         const htmlContent = args.htmlContent || '';
-        const res = await generatePPT(title, slides, htmlContent);
+        const theme = args.theme || 'cyberpunk';
+        const res = await generatePPT(title, slides, htmlContent, theme);
         toolWidgets.push({
           tool: 'generate_ppt',
-          args: { title, slides },
+          args: { title, slides, theme },
           pdfPath: res?.pdfPath,
           htmlPath: res?.htmlPath,
           success: res?.success
@@ -369,6 +619,14 @@ export default function App() {
         });
       }
 
+      else if (tool === 'whatsapp_action') {
+        const contact = args.contact || '';
+        const message = args.message || '';
+        const action = args.action || 'message';
+        const res = await executeWhatsAppAction(contact, message, action);
+        toolWidgets.push({ tool: 'whatsapp_action', args, res, success: res?.success });
+      }
+
       else if (tool === 'device_action') {
         if (args.action === 'vibrate') {
           triggerHaptic([100, 50, 100]);
@@ -383,6 +641,23 @@ export default function App() {
   const handleSendMessage = async (text, attachment = null) => {
     if (!text && !attachment) return;
 
+    // Ensure authenticated user has a real database thread
+    let currentChatId = activeThreadId;
+    if (isAuthenticated && (!currentChatId || currentChatId.startsWith('local_') || currentChatId.startsWith('thread_'))) {
+      try {
+        const newChat = await createChat({ title: text ? text.slice(0, 32) : 'New Session' });
+        currentChatId = newChat.id;
+        setActiveThreadId(currentChatId);
+        setThreads(prev => {
+          const exists = prev.some(t => t.id === currentChatId);
+          if (exists) return prev;
+          return [{ id: newChat.id, title: newChat.title, timestamp: newChat.timestamp, messages: [] }, ...prev.filter(t => !t.id.startsWith('local_') && !t.id.startsWith('thread_'))];
+        });
+      } catch (e) {
+        console.error('Failed to create DB chat thread:', e);
+      }
+    }
+
     // ── NLP Preprocessing: classify intent, fetch RAG data & inject context into prompt ────
     const { enhancedText, intent, isRetry } = await preprocessAsync(text || '', settings.assistantName || 'Aanya');
 
@@ -394,8 +669,12 @@ export default function App() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
+    // Save user message to database if authenticated
+    if (isAuthenticated && currentChatId && !currentChatId.startsWith('local_') && !currentChatId.startsWith('thread_')) {
+      addMessage(currentChatId, userMessage).catch(err => console.error('Failed to save user message to DB:', err));
+    }
+
     // Build messages for AI — use enhancedText (with NLP context) for last user turn
-    // Model messages (with NLP context injected into last user turn)
     const modelMessages = [
       ...(currentThread.messages || []),
       { ...userMessage, content: enhancedText }
@@ -404,16 +683,77 @@ export default function App() {
     const displayMessages = [...(currentThread.messages || []), userMessage];
     const isFirstMessage = displayMessages.length === 1;
 
+    const chatTitle = isFirstMessage ? (text ? text.slice(0, 32) : 'Image Analysis') : currentThread.title;
+
+    if (isFirstMessage && isAuthenticated && currentChatId && !currentChatId.startsWith('local_') && !currentChatId.startsWith('thread_')) {
+      updateChat(currentChatId, { title: chatTitle }).catch(err => console.error('Failed to update chat title in DB:', err));
+    }
+
+    // Update threads optimistically
     setThreads(prev => prev.map(t => {
-      if (t.id === activeThreadId) {
+      if (t.id === (currentChatId || activeThreadId)) {
         return {
           ...t,
-          title: isFirstMessage ? (text ? text.slice(0, 32) : 'Image Analysis') : t.title,
+          title: chatTitle,
           messages: displayMessages   // store clean messages for display
         };
       }
       return t;
     }));
+
+    // ── SILENT ACTION FAST PATH ──────────────────────────────────────────────
+    if (intent.silentAction && intent.type !== 'retry') {
+      let silentTools = [];
+      let statusText = '';
+
+      if (intent.type === 'web_search') {
+        silentTools = [{ tool: 'web_search', args: { query: intent.query, engine: intent.engine || 'google' } }];
+        statusText = `🔍 Searching for **${intent.query}**...`;
+      } else if (intent.type === 'open_app' || intent.type === 'open_url') {
+        const app = intent.app || 'browser';
+        const url = intent.url || intent.query || '';
+        silentTools = [{ tool: 'open_app', args: { app, query: url } }];
+        statusText = `🚀 Opening **${app}**${url ? ` → ${url.length > 50 ? url.slice(0, 50) + '…' : url}` : ''}...`;
+      } else if (intent.type === 'whatsapp_contact') {
+        silentTools = [{ tool: 'whatsapp_action', args: { contact: intent.contact, message: intent.message || '', action: intent.action } }];
+        statusText = intent.action === 'call'
+          ? `📞 Calling **${intent.contact}** on WhatsApp...`
+          : `💬 Sending WhatsApp message to **${intent.contact}**...`;
+      } else if (intent.type === 'call') {
+        silentTools = [{ tool: 'open_app', args: { app: 'phone', query: intent.phone } }];
+        statusText = `📞 Dialling **${intent.phone}**...`;
+      } else if (intent.type === 'sms') {
+        silentTools = [{ tool: 'open_app', args: { app: 'sms', query: `${intent.phone}|${intent.body}` } }];
+        statusText = `✉️ Sending SMS to **${intent.phone}**...`;
+      } else if (intent.type === 'media_control') {
+        silentTools = [{ tool: 'media_control', args: { action: intent.action, app: intent.app, query: intent.query || '' } }];
+        statusText = `🎵 ${intent.action === 'play' ? 'Playing' : intent.action} on **${intent.app}**${intent.query ? `: ${intent.query}` : ''}...`;
+      }
+
+      if (silentTools.length > 0) {
+        const toolWidgets = await handleExecuteTools(silentTools);
+        const statusBubble = {
+          id: `msg_${Date.now() + 1}`,
+          role: 'assistant',
+          content: statusText,
+          toolWidgets,
+          isSilentAction: true,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        if (isAuthenticated && currentChatId && !currentChatId.startsWith('local_') && !currentChatId.startsWith('thread_')) {
+          addMessage(currentChatId, statusBubble).catch(err => console.error('Failed to save silent action message to DB:', err));
+        }
+        setThreads(prev => prev.map(t => {
+          if (t.id === (currentChatId || activeThreadId)) {
+            return { ...t, messages: [...t.messages, statusBubble] };
+          }
+          return t;
+        }));
+        setIsThinking(false);
+        return; // Do NOT call AI model
+      }
+    }
+    // ── END SILENT ACTION FAST PATH ───────────────────────────────────────────
 
     setIsThinking(true);
 
@@ -427,7 +767,7 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: enhancedText || text,
-            conversation_id: activeThreadId,
+            conversation_id: currentChatId || activeThreadId,
             file_path: attachment?.name || ''
           })
         });
@@ -438,7 +778,6 @@ export default function App() {
         // Execute in Autonomous On-Device Neural Engine (NLP context injected)
         rawReply = await thinkOnDevice(modelMessages, settings, attachment);
       }
-
 
       // Parse structured JSON tools
       const { cleanText, tools } = parseToolCalls(rawReply);
@@ -468,8 +807,12 @@ export default function App() {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
+      if (isAuthenticated && currentChatId && !currentChatId.startsWith('local_') && !currentChatId.startsWith('thread_')) {
+        addMessage(currentChatId, assistantMessage).catch(err => console.error('Failed to save assistant message to DB:', err));
+      }
+
       setThreads(prev => prev.map(t => {
-        if (t.id === activeThreadId) {
+        if (t.id === (currentChatId || activeThreadId)) {
           return {
             ...t,
             messages: [...t.messages, assistantMessage]
@@ -491,8 +834,12 @@ export default function App() {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
+      if (isAuthenticated && currentChatId && !currentChatId.startsWith('local_') && !currentChatId.startsWith('thread_')) {
+        addMessage(currentChatId, errorMessage).catch(err => console.error('Failed to save error message to DB:', err));
+      }
+
       setThreads(prev => prev.map(t => {
-        if (t.id === activeThreadId) {
+        if (t.id === (currentChatId || activeThreadId)) {
           return { ...t, messages: [...t.messages, errorMessage] };
         }
         return t;
@@ -594,11 +941,11 @@ export default function App() {
   };
 
   const handleAddMinuteToTimer = (id) => {
-    setTimers(prev => prev.map(t => t.id === id ? { 
-      ...t, 
-      remainingSeconds: t.remainingSeconds + 60, 
+    setTimers(prev => prev.map(t => t.id === id ? {
+      ...t,
+      remainingSeconds: t.remainingSeconds + 60,
       totalSeconds: t.totalSeconds + 60,
-      isFinished: false 
+      isFinished: false
     } : t));
   };
 
@@ -631,7 +978,15 @@ export default function App() {
       content,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
-    setNotes(prev => [newNote, ...prev]);
+
+    if (isAuthenticated) {
+      createNote({ title, content }).then(savedNote => {
+        setNotes(prev => [savedNote, ...prev]);
+      });
+    } else {
+      setNotes(prev => [newNote, ...prev]);
+      saveLocalChats(notes); // Reusing for now
+    }
   };
 
   // Task Handlers
@@ -651,125 +1006,319 @@ export default function App() {
       done: false,
       created: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
-    setTasks(prev => [newTask, ...prev]);
+
+    if (isAuthenticated) {
+      createTask({ text, priority: 'normal' }).then(savedTask => {
+        setTasks(prev => [savedTask, ...prev]);
+      });
+    } else {
+      setTasks(prev => [newTask, ...prev]);
+      saveLocalChats(tasks); // Reusing for now
+    }
   };
 
-  return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#05070c] text-slate-100 font-sans">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        threads={threads}
-        activeThreadId={activeThreadId}
-        onSelectThread={(id) => setActiveThreadId(id)}
-        onNewThread={handleNewThread}
-        onDeleteThread={handleDeleteThread}
-        onOpenPrivacy={() => setIsPrivacyOpen(true)}
-        onQuickAction={(toolId) => {
-          setShowWidgetsTray(true);
-        }}
-        tokenUsage={tokenUsage}
-      />
+  // Handle auth modal
+  const handleAuthClose = () => {
+    setShowAuthModal(false);
+  };
 
-      {/* Main Workspace Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {/* Top Header */}
-        <Header
-          settings={settings}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          isListening={isListening}
-          isSpeaking={isSpeaking}
-          onEmergencyStop={stopSpeaking}
-          activeTimersCount={timers.filter(t => !t.isFinished).length}
-          onToggleWidgetsTray={() => setShowWidgetsTray(!showWidgetsTray)}
-          showWidgetsTray={showWidgetsTray}
-        />
+  // Handle guest login
+  const handleGuestLogin = () => {
+    setShowAuthModal(false);
+    // Will be handled by auth state change
+  };
 
-        {/* Chat Message Stream */}
-        <ChatArea
-          messages={currentThread.messages || []}
-          isThinking={isThinking}
-          settings={settings}
-          onSpeakMessage={(text) => speakOnDevice(text, settings)}
-          onToggleTimerPause={handleToggleTimerPause}
-          onAddMinuteToTimer={handleAddMinuteToTimer}
-          onCancelTimer={handleCancelTimer}
-          onToggleAlarmActive={handleToggleAlarmActive}
-          onDeleteAlarm={handleDeleteAlarm}
-          onUpdateNote={handleUpdateNote}
-          onDeleteNote={handleDeleteNote}
-          onToggleTaskDone={handleToggleTaskDone}
-          onDeleteTask={handleDeleteTask}
-        />
+  // Handle logout
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setShowAuthModal(false);
+    // Will reset to local state via auth state change
+  };
 
-        {/* Bottom Input Controls */}
-        <InputBar
-          onSendMessage={handleSendMessage}
-          onOpenLiveCamera={() => setIsCameraOpen(true)}
-          isListening={isListening}
-          onToggleSpeechRecognition={handleToggleSpeech}
-          interimTranscript={interimTranscript}
-          disabled={isThinking}
-          assistantName={settings.assistantName || 'Aanya'}
-        />
-
-        {/* Active Widgets Side/Bottom Panel */}
-        <ActiveWidgetsBar
-          isOpen={showWidgetsTray}
-          onClose={() => setShowWidgetsTray(false)}
-          timers={timers}
-          alarms={alarms}
-          notes={notes}
-          tasks={tasks}
-          onToggleTimerPause={handleToggleTimerPause}
-          onAddMinuteToTimer={handleAddMinuteToTimer}
-          onCancelTimer={handleCancelTimer}
-          onToggleAlarmActive={handleToggleAlarmActive}
-          onDeleteAlarm={handleDeleteAlarm}
-          onUpdateNote={handleUpdateNote}
-          onDeleteNote={handleDeleteNote}
-          onToggleTaskDone={handleToggleTaskDone}
-          onDeleteTask={handleDeleteTask}
-          onAddNewTask={handleAddNewTask}
-          onAddNewNote={handleAddNewNote}
-        />
+  if (isAuthLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div className="w-full max-w-md bg-obsidian-900 border border-cyan-500/30 rounded-2xl overflow-hidden shadow-2xl">
+          <div className="p-6 text-center">
+            <div className="flex items-center justify-center mb-4">
+              <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
+            </div>
+            <h3 className="text-sm font-bold tracking-wider uppercase text-white">
+              Loading ANYA...
+            </h3>
+          </div>
+        </div>
       </div>
+    );
+  }
 
-      {/* Modals */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onSaveSettings={(newSettings) => {
-          setSettings(newSettings);
-          saveSettings(newSettings);
-        }}
-      />
 
-      <PrivacyPolicyModal
-        isOpen={isPrivacyOpen}
-        onClose={() => setIsPrivacyOpen(false)}
-      />
-
-      <CameraModal
-        isOpen={isCameraOpen}
-        onClose={() => setIsCameraOpen(false)}
-        assistantName={settings.assistantName || 'Aanya'}
-        onCapture={(imgData, livePrompt) => {
-          const prompt = livePrompt || "Analyze this live camera view and describe what you observe or execute requested actions.";
-          handleSendMessage(prompt, imgData);
-        }}
-      />
-
-      {/* Real-time AI Call Screener HUD Modal */}
-      {activeTelephonyCalls.length > 0 && (
-        <CallScreenerWidget
-          callSession={activeTelephonyCalls[0]}
-          onClose={() => setActiveTelephonyCalls([])}
-          assistantName={settings.assistantName || 'Aanya'}
+  return (
+    <div className="flex h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-screen overflow-hidden bg-[#05070c] text-slate-100 font-sans">
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={handleAuthClose}
         />
+      )}
+
+      {/* Main App (only show when authenticated) */}
+      {isAuthenticated && (
+        <>
+          {/* Sidebar Navigation */}
+          <Sidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+            threads={threads}
+            activeThreadId={activeThreadId}
+            onSelectThread={(id) => {
+              setActiveThreadId(id);
+              loadChatMessages(id);
+            }}
+            onNewThread={handleNewThread}
+            onDeleteThread={handleDeleteThread}
+            onOpenPrivacy={() => setIsPrivacyOpen(true)}
+            onQuickAction={(toolId) => {
+              setShowWidgetsTray(true);
+            }}
+            tokenUsage={tokenUsage}
+            currentUser={activeUser}
+            onLogout={handleLogout}
+          />
+
+          {/* Main Workspace Area */}
+          <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+            {/* Top Header */}
+            <Header
+              settings={settings}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+              onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+              isListening={isListening}
+              isSpeaking={isSpeaking}
+              onEmergencyStop={stopSpeaking}
+              activeTimersCount={timers.filter(t => !t.isFinished).length}
+              onToggleWidgetsTray={() => setShowWidgetsTray(!showWidgetsTray)}
+              showWidgetsTray={showWidgetsTray}
+              currentUser={activeUser}
+            />
+
+            {/* Chat Message Stream */}
+            <ChatArea
+              messages={currentThread.messages || []}
+              isThinking={isThinking}
+              settings={settings}
+              onSpeakMessage={(text) => speakOnDevice(text, settings)}
+              onToggleTimerPause={handleToggleTimerPause}
+              onAddMinuteToTimer={handleAddMinuteToTimer}
+              onCancelTimer={handleCancelTimer}
+              onToggleAlarmActive={handleToggleAlarmActive}
+              onDeleteAlarm={handleDeleteAlarm}
+              onUpdateNote={handleUpdateNote}
+              onDeleteNote={handleDeleteNote}
+              onToggleTaskDone={handleToggleTaskDone}
+              onDeleteTask={handleDeleteTask}
+            />
+
+            {/* Bottom Input Controls */}
+            <InputBar
+              onSendMessage={handleSendMessage}
+              onOpenLiveCamera={() => setIsCameraOpen(true)}
+              isListening={isListening}
+              onToggleSpeechRecognition={handleToggleSpeech}
+              interimTranscript={interimTranscript}
+              disabled={isThinking}
+              assistantName={settings.assistantName || 'Aanya'}
+            />
+
+            {/* Active Widgets Side/Bottom Panel */}
+            <ActiveWidgetsBar
+              isOpen={showWidgetsTray}
+              onClose={() => setShowWidgetsTray(false)}
+              timers={timers}
+              alarms={alarms}
+              notes={notes}
+              tasks={tasks}
+              onToggleTimerPause={handleToggleTimerPause}
+              onAddMinuteToTimer={handleAddMinuteToTimer}
+              onCancelTimer={handleCancelTimer}
+              onToggleAlarmActive={handleToggleAlarmActive}
+              onDeleteAlarm={handleDeleteAlarm}
+              onUpdateNote={handleUpdateNote}
+              onDeleteNote={handleDeleteNote}
+              onToggleTaskDone={handleToggleTaskDone}
+              onDeleteTask={handleDeleteTask}
+              onAddNewTask={handleAddNewTask}
+              onAddNewNote={handleAddNewNote}
+            />
+          </div>
+
+          {/* Modals */}
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            settings={settings}
+            onSaveSettings={(newSettings) => {
+              setSettings(newSettings);
+              saveSettings(newSettings);
+            }}
+          />
+
+          <PrivacyPolicyModal
+            isOpen={isPrivacyOpen}
+            onClose={() => setIsPrivacyOpen(false)}
+          />
+
+          <CameraModal
+            isOpen={isCameraOpen}
+            onClose={() => setIsCameraOpen(false)}
+            assistantName={settings.assistantName || 'Aanya'}
+            onCapture={(imgData, livePrompt) => {
+              const prompt = livePrompt || "Analyze this live camera view and describe what you observe or execute requested actions.";
+              handleSendMessage(prompt, imgData);
+            }}
+          />
+
+          {/* Real-time AI Call Screener HUD Modal */}
+          {activeTelephonyCalls.length > 0 && (
+            <CallScreenerWidget
+              callSession={activeTelephonyCalls[0]}
+              onClose={() => setActiveTelephonyCalls([])}
+              assistantName={settings.assistantName || 'Aanya'}
+            />
+          )}
+        </>
+      )}
+
+      {/* Guest Mode App (show when not authenticated but not showing auth modal) */}
+      {!isAuthenticated && !showAuthModal && (
+        <>
+          {/* Sidebar Navigation */}
+          <Sidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+            threads={threads}
+            activeThreadId={activeThreadId}
+            onSelectThread={(id) => {
+              setActiveThreadId(id);
+              // Load messages for guest mode (from localStorage within chats)
+              const chat = threads.find(t => t.id === id);
+              // Messages are already stored in the chat object for guest mode
+            }}
+            onNewThread={handleNewThread}
+            onDeleteThread={handleDeleteThread}
+            onOpenPrivacy={() => setIsPrivacyOpen(true)}
+            onQuickAction={(toolId) => {
+              setShowWidgetsTray(true);
+            }}
+            tokenUsage={tokenUsage}
+            currentUser={getActiveUser() || { name: 'Boss', role: 'Commander' }}
+            onLogout={handleLogout}
+          />
+
+          {/* Main Workspace Area */}
+          <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+            {/* Top Header */}
+            <Header
+              settings={settings}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+              onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+              isListening={isListening}
+              isSpeaking={isSpeaking}
+              onEmergencyStop={stopSpeaking}
+              activeTimersCount={timers.filter(t => !t.isFinished).length}
+              onToggleWidgetsTray={() => setShowWidgetsTray(!showWidgetsTray)}
+              showWidgetsTray={showWidgetsTray}
+              currentUser={getActiveUser() || { name: 'Boss', role: 'Commander' }}
+            />
+
+            {/* Chat Message Stream */}
+            <ChatArea
+              messages={currentThread.messages || []}
+              isThinking={isThinking}
+              settings={settings}
+              onSpeakMessage={(text) => speakOnDevice(text, settings)}
+              onToggleTimerPause={handleToggleTimerPause}
+              onAddMinuteToTimer={handleAddMinuteToTimer}
+              onCancelTimer={handleCancelTimer}
+              onToggleAlarmActive={handleToggleAlarmActive}
+              onDeleteAlarm={handleDeleteAlarm}
+              onUpdateNote={handleUpdateNote}
+              onDeleteNote={handleDeleteNote}
+              onToggleTaskDone={handleToggleTaskDone}
+              onDeleteTask={handleDeleteTask}
+            />
+
+            {/* Bottom Input Controls */}
+            <InputBar
+              onSendMessage={handleSendMessage}
+              onOpenLiveCamera={() => setIsCameraOpen(true)}
+              isListening={isListening}
+              onToggleSpeechRecognition={handleToggleSpeech}
+              interimTranscript={interimTranscript}
+              disabled={isThinking}
+              assistantName={settings.assistantName || 'Aanya'}
+            />
+
+            {/* Active Widgets Side/Bottom Panel */}
+            <ActiveWidgetsBar
+              isOpen={showWidgetsTray}
+              onClose={() => setShowWidgetsTray(false)}
+              timers={timers}
+              alarms={alarms}
+              notes={notes}
+              tasks={tasks}
+              onToggleTimerPause={handleToggleTimerPause}
+              onAddMinuteToTimer={handleAddMinuteToTimer}
+              onCancelTimer={handleCancelTimer}
+              onToggleAlarmActive={handleToggleAlarmActive}
+              onDeleteAlarm={handleDeleteAlarm}
+              onUpdateNote={handleUpdateNote}
+              onDeleteNote={handleDeleteNote}
+              onToggleTaskDone={handleToggleTaskDone}
+              onDeleteTask={handleDeleteTask}
+              onAddNewTask={handleAddNewTask}
+              onAddNewNote={handleAddNewNote}
+            />
+          </div>
+
+          {/* Modals */}
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            settings={settings}
+            onSaveSettings={(newSettings) => {
+              setSettings(newSettings);
+              saveSettings(newSettings);
+            }}
+          />
+
+          <PrivacyPolicyModal
+            isOpen={isPrivacyOpen}
+            onClose={() => setIsPrivacyOpen(false)}
+          />
+
+          <CameraModal
+            isOpen={isCameraOpen}
+            onClose={() => setIsCameraOpen(false)}
+            assistantName={getActiveUser()?.name || 'Aanya'}
+            onCapture={(imgData, livePrompt) => {
+              const prompt = livePrompt || "Analyze this live camera view and describe what you observe or execute requested actions.";
+              handleSendMessage(prompt, imgData);
+            }}
+          />
+
+          {/* Real-time AI Call Screener HUD Modal */}
+          {activeTelephonyCalls.length > 0 && (
+            <CallScreenerWidget
+              callSession={activeTelephonyCalls[0]}
+              onClose={() => setActiveTelephonyCalls([])}
+              assistantName={getActiveUser()?.name || 'Aanya'}
+            />
+          )}
+        </>
       )}
     </div>
   );

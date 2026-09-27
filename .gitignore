@@ -6,8 +6,22 @@ freellmapi/client/node_modules/
 # Build outputs
 dist/
 dist-electron/
+dist-native/
 freellmapi/server/dist/
 freellmapi/client/dist/
+
+# Android & Gradle Build Artifacts
+.gradle/
+**/build/
+**/.gradle/
+*.apk
+*.aab
+*.keystore
+android-screener/gradle/
+android-screener/gradlew
+android-screener/gradlew.bat
+android-screener/local.properties
+android-screener/gradle.properties
 
 # OS & Temp
 .DS_Store
@@ -18,3 +32,5 @@ scratch/
 .env
 freellmapi/server/data/*.db
 freellmapi/server/data/freeapi.db
+
+
