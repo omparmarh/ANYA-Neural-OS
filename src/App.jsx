@@ -640,6 +640,9 @@ export default function App() {
   // Main Send Message Handler
   const handleSendMessage = async (text, attachment = null) => {
     if (!text && !attachment) return;
+    // Prevent overlapping model calls — the live camera stream sends frames
+    // continuously, so ignore new messages while the model is already working.
+    if (isThinking) return;
 
     // Ensure authenticated user has a real database thread
     let currentChatId = activeThreadId;

@@ -449,8 +449,16 @@ export async function executeAppLaunch(app, query = '') {
     // Non-mac, non-Electron, or app without a native name → browser route
     if (targetUrl) {
       if (url && !url.startsWith('http') && url !== targetUrl) {
-        window.location.href = url;
-        if (fallbackUrl) setTimeout(() => openApp(appKey, fallbackUrl), 1500);
+        // Deep-link scheme (e.g. vnd.youtube://, spotify:, whatsapp://).
+        // NEVER use window.location.href — that navigates THIS page away.
+        // Open in a new tab instead; if the scheme is not handled the
+        // browser just ignores it and we fall back to the web URL below.
+        try { window.open(url, '_blank', 'noopener,noreferrer'); } catch {}
+        if (fallbackUrl) {
+          setTimeout(() => {
+            try { window.open(fallbackUrl, '_blank', 'noopener,noreferrer'); } catch {}
+          }, 1200);
+        }
       } else {
         await openApp(appKey, targetUrl);
       }
