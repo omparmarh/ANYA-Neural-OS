@@ -116,7 +116,7 @@ export default function Header({
               boxShadow: '0 0 14px rgba(0,210,255,0.28)',
             }}
           >
-            <img src="/anya-logo.png" alt="Aanya Logo" className="w-full h-full object-cover" draggable={false} />
+            <img src="./anya-logo.png" alt="Aanya Logo" className="w-full h-full object-cover" draggable={false} />
             <span className="absolute inset-0 rounded-xl border border-cyan-400/30 animate-ping opacity-20 pointer-events-none" />
           </div>
 

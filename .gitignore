@@ -21,7 +21,8 @@ android-screener/gradle/
 android-screener/gradlew
 android-screener/gradlew.bat
 android-screener/local.properties
-android-screener/gradle.properties
+android-screener/app/src/main/assets/
+android-screener/app/src/main/res/
 
 # OS & Temp
 .DS_Store

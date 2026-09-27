@@ -46,10 +46,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openNativeApp: (appName, url, args) => ipcRenderer.invoke('anya:open-native-app', { appName, url, args }),
 
   /** Autonomously generate a PDF and save it to ~/Desktop */
-  generatePDF: (title, htmlContent, savePath) => ipcRenderer.invoke('anya:generate-pdf', { title, htmlContent, savePath }),
+  generatePDF: (title, htmlContent, theme = 'cyberpunk', savePath) => ipcRenderer.invoke('anya:generate-pdf', { title, htmlContent, theme, savePath }),
 
   /** Autonomously generate 16:9 Presentation slides / PPT and save to ~/Desktop */
-  generatePPT: (title, slides, htmlContent, savePath) => ipcRenderer.invoke('anya:generate-ppt', { title, slides, htmlContent, savePath }),
+  generatePPT: (title, slides, htmlContent, theme = 'cyberpunk', savePath) => ipcRenderer.invoke('anya:generate-ppt', { title, slides, htmlContent, theme, savePath }),
 
   /** Create a file at path with content */
   createFile: (filePath, content) => ipcRenderer.invoke('anya:create-file', { filePath, content }),
@@ -65,4 +65,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   /** Execute host shell command */
   runCommand: (command, cwd) => ipcRenderer.invoke('anya:run-command', { command, cwd }),
+
+  /** WhatsApp automation via Spotlight + keyboard (macOS) */
+  whatsappAction: (contact, message, action) =>
+    ipcRenderer.invoke('anya:whatsapp-action', { contact, message, action }),
 });

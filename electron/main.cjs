@@ -467,32 +467,87 @@ ipcMain.handle('anya:open-native-app', async (event, { appName, url, args = '' }
 
 // ─── Autonomous PDF Generator ──────────────────────────────────────────────────
 // Renders content into a real PDF using Electron's printToPDF, saves to Desktop
-ipcMain.handle('anya:generate-pdf', async (event, { title, htmlContent, savePath }) => {
+ipcMain.handle('anya:generate-pdf', async (event, { title, htmlContent, savePath, theme = 'cyberpunk' }) => {
   try {
     const os = require('os');
     const safeTitle = (title || 'Aanya_Document').replace(/[^a-zA-Z0-9_\- ]/g, '_').replace(/\s+/g, '_');
     const outputPath = savePath || path.join(os.homedir(), 'Desktop', `${safeTitle}.pdf`);
+
+    // Dynamic Style selection based on theme
+    let styleBlock = '';
+
+    if (theme === 'minimalist') {
+      styleBlock = `
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', Arial, sans-serif; font-size: 11pt; color: #27272a; line-height: 1.6; padding: 60px; background: #ffffff; }
+        h1 { font-size: 20pt; font-weight: 300; color: #09090b; margin-bottom: 24px; border-bottom: 1px solid #e4e4e7; padding-bottom: 12px; letter-spacing: -0.02em; }
+        h2 { font-size: 14pt; font-weight: 600; color: #18181b; margin-top: 24px; margin-bottom: 8px; }
+        h3 { font-size: 11pt; font-weight: 600; color: #3f3f46; margin-top: 16px; margin-bottom: 4px; }
+        p  { margin-bottom: 12px; }
+        ul, ol { margin: 8px 0 12px 20px; }
+        li { margin-bottom: 6px; }
+        code { background: #f4f4f5; padding: 2px 5px; border-radius: 3px; font-family: monospace; font-size: 9.5pt; color: #09090b; }
+        pre  { background: #f4f4f5; padding: 14px; border-radius: 4px; overflow-x: auto; margin: 16px 0; font-size: 9pt; border: 1px solid #e4e4e7; }
+        blockquote { border-left: 2px solid #a1a1aa; padding-left: 14px; color: #71717a; font-style: italic; margin: 16px 0; }
+        .footer { margin-top: 60px; padding-top: 16px; border-top: 1px solid #f4f4f5; font-size: 8.5pt; color: #a1a1aa; text-align: center; }
+      `;
+    } else if (theme === 'corporate') {
+      styleBlock = `
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Roboto', Arial, sans-serif; font-size: 11.5pt; color: #1e293b; line-height: 1.65; padding: 50px; background: #ffffff; }
+        h1 { font-size: 22pt; font-weight: 700; color: #1e3a8a; margin-bottom: 12px; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }
+        h2 { font-size: 15pt; font-weight: 500; color: #2563eb; margin-top: 24px; margin-bottom: 8px; }
+        h3 { font-size: 12pt; font-weight: 500; color: #1d4ed8; margin-top: 16px; margin-bottom: 6px; }
+        p  { margin-bottom: 12px; }
+        ul, ol { margin: 8px 0 12px 22px; }
+        li { margin-bottom: 5px; }
+        code { background: #f8fafc; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 9.5pt; border: 1px solid #e2e8f0; }
+        pre  { background: #f8fafc; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 16px 0; font-size: 9pt; border: 1px solid #e2e8f0; }
+        blockquote { border-left: 4px solid #2563eb; padding-left: 16px; color: #475569; font-style: italic; margin: 16px 0; }
+        .footer { margin-top: 50px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 9pt; color: #94a3b8; text-align: center; }
+      `;
+    } else if (theme === 'academic') {
+      styleBlock = `
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #000000; line-height: 2.0; padding: 72px; background: #ffffff; text-align: justify; }
+        h1 { font-size: 18pt; font-weight: bold; color: #000000; margin-bottom: 20px; text-align: center; }
+        h2 { font-size: 14pt; font-weight: bold; color: #000000; margin-top: 24px; margin-bottom: 12px; }
+        h3 { font-size: 12pt; font-weight: bold; color: #000000; margin-top: 18px; margin-bottom: 8px; }
+        p  { margin-bottom: 18px; text-indent: 36px; }
+        ul, ol { margin: 12px 0 18px 36px; }
+        li { margin-bottom: 8px; }
+        code { font-family: 'Courier New', Courier, monospace; font-size: 10.5pt; }
+        pre  { padding: 18px; overflow-x: auto; margin: 18px 0; font-size: 10pt; border: 1px solid #000000; }
+        blockquote { border-left: 1px solid #000000; padding-left: 18px; color: #000000; font-style: italic; margin: 18px 0; }
+        .footer { margin-top: 72px; font-size: 10pt; color: #000000; text-align: center; }
+      `;
+    } else {
+      // Default: dark cyberpunk (custom designed for ANYA aesthetic)
+      styleBlock = `
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'JetBrains Mono', monospace; font-size: 11pt; color: #00f0ff; line-height: 1.6; padding: 50px; background: #05070c; }
+        h1 { font-size: 22pt; font-weight: 700; color: #ffffff; margin-bottom: 16px; border-bottom: 2px solid #00f0ff; padding-bottom: 12px; text-shadow: 0 0 10px rgba(0,240,255,0.4); }
+        h2 { font-size: 15pt; font-weight: 700; color: #38bdf8; margin-top: 26px; margin-bottom: 8px; text-shadow: 0 0 5px rgba(56,189,248,0.3); }
+        h3 { font-size: 12pt; font-weight: 700; color: #22d3ee; margin-top: 18px; margin-bottom: 6px; }
+        p  { margin-bottom: 12px; color: #cbd5e1; }
+        ul, ol { margin: 8px 0 12px 24px; color: #cbd5e1; }
+        li { margin-bottom: 4px; }
+        code { background: #090d16; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 9.5pt; color: #38bdf8; border: 1px solid rgba(0,240,255,0.2); }
+        pre  { background: #090d16; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 16px 0; font-size: 9pt; border: 1px solid rgba(0,240,255,0.2); }
+        blockquote { border-left: 4px solid #00f0ff; padding-left: 16px; color: #94a3b8; font-style: italic; margin: 16px 0; background: rgba(0,240,255,0.02); padding-top: 6px; padding-bottom: 6px; }
+        .footer { margin-top: 50px; padding-top: 12px; border-top: 1px solid rgba(0,240,255,0.1); font-size: 8.5pt; color: #64748b; text-align: center; }
+      `;
+    }
 
     // Build a standalone HTML page to render
     const fullHtml = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Inter', Arial, sans-serif; font-size: 12pt; color: #1a1a2e; line-height: 1.7; padding: 48px 60px; background: #fff; }
-  h1 { font-size: 24pt; font-weight: 700; color: #0f172a; margin-bottom: 8px; border-bottom: 3px solid #0ea5e9; padding-bottom: 12px; }
-  h2 { font-size: 16pt; font-weight: 600; color: #0369a1; margin-top: 28px; margin-bottom: 8px; }
-  h3 { font-size: 13pt; font-weight: 600; color: #1e3a5f; margin-top: 18px; margin-bottom: 6px; }
-  p  { margin-bottom: 10px; }
-  ul, ol { margin: 8px 0 10px 24px; }
-  li { margin-bottom: 4px; }
-  code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 10pt; }
-  pre  { background: #f1f5f9; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 12px 0; font-size: 9.5pt; }
-  blockquote { border-left: 4px solid #0ea5e9; padding-left: 16px; color: #475569; font-style: italic; margin: 14px 0; }
-  .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 9pt; color: #94a3b8; text-align: center; }
-</style>
+<style>${styleBlock}</style>
 </head>
 <body>
 ${htmlContent}
@@ -530,7 +585,7 @@ ${htmlContent}
 });
 
 // ─── Autonomous 16:9 Presentation / PPT (.pptx) Generator ─────────────────────
-ipcMain.handle('anya:generate-ppt', async (event, { title, slides = [], htmlContent, savePath }) => {
+ipcMain.handle('anya:generate-ppt', async (event, { title, slides = [], htmlContent, savePath, theme = 'cyberpunk' }) => {
   try {
     const os = require('os');
     const PptxGenJS = require('pptxgenjs');
@@ -545,28 +600,82 @@ ipcMain.handle('anya:generate-ppt', async (event, { title, slides = [], htmlCont
       { title: title || 'Executive Presentation', subtitle: 'Generated by Aanya OS', content: ['Overview & Highlights'] }
     ];
 
+    // Define Theme Palette
+    let themeConfig = {
+      bg: '090D16',
+      badgeColor: '06B6D4',
+      badgeFont: 'Courier',
+      titleColor: 'FFFFFF',
+      titleFont: 'Arial',
+      subtitleColor: '38BDF8',
+      subtitleFont: 'Arial',
+      bodyColor: 'E2E8F0',
+      bodyFont: 'Arial',
+      footerColor: '64748B'
+    };
+
+    if (theme === 'minimalist') {
+      themeConfig = {
+        bg: 'FFFFFF',
+        badgeColor: '71717A',
+        badgeFont: 'Helvetica',
+        titleColor: '18181B',
+        titleFont: 'Helvetica',
+        subtitleColor: '52525B',
+        subtitleFont: 'Helvetica',
+        bodyColor: '27272A',
+        bodyFont: 'Helvetica',
+        footerColor: 'A1A1AA'
+      };
+    } else if (theme === 'corporate') {
+      themeConfig = {
+        bg: 'F8FAFC',
+        badgeColor: '2563EB',
+        badgeFont: 'Calibri',
+        titleColor: '1E3A8A',
+        titleFont: 'Calibri',
+        subtitleColor: '3B82F6',
+        subtitleFont: 'Calibri',
+        bodyColor: '334155',
+        bodyFont: 'Calibri',
+        footerColor: '94A3B8'
+      };
+    } else if (theme === 'academic') {
+      themeConfig = {
+        bg: 'FFFFFA',
+        badgeColor: '451A03',
+        badgeFont: 'Georgia',
+        titleColor: '000000',
+        titleFont: 'Georgia',
+        subtitleColor: '78350F',
+        subtitleFont: 'Georgia',
+        bodyColor: '1C1917',
+        bodyFont: 'Georgia',
+        footerColor: '78716C'
+      };
+    }
+
     slideList.forEach((s, idx) => {
       const slide = pptx.addSlide();
-      // Dark cybernetic theme
-      slide.background = { color: '090D16' };
+      slide.background = { color: themeConfig.bg };
 
       // Slide Header Badge
       slide.addText(`SLIDE ${idx + 1} OF ${slideList.length} • AANYA PRESENTATION`, {
         x: 0.8, y: 0.5, w: '85%', h: 0.4,
-        fontSize: 10, color: '06B6D4', fontFace: 'Courier', bold: true
+        fontSize: 10, color: themeConfig.badgeColor, fontFace: themeConfig.badgeFont, bold: true
       });
 
       // Slide Title
       slide.addText(s.title || `Topic ${idx + 1}`, {
         x: 0.8, y: 0.9, w: '88%', h: 1.0,
-        fontSize: 28, color: 'FFFFFF', bold: true, fontFace: 'Arial'
+        fontSize: 28, color: themeConfig.titleColor, bold: true, fontFace: themeConfig.titleFont
       });
 
       // Slide Subtitle
       if (s.subtitle) {
         slide.addText(s.subtitle, {
           x: 0.8, y: 1.8, w: '88%', h: 0.5,
-          fontSize: 16, color: '38BDF8', italic: true, fontFace: 'Arial'
+          fontSize: 16, color: themeConfig.subtitleColor, italic: true, fontFace: themeConfig.subtitleFont
         });
       }
 
@@ -575,7 +684,7 @@ ipcMain.handle('anya:generate-ppt', async (event, { title, slides = [], htmlCont
       if (Array.isArray(s.content)) {
         const bulletItems = s.content.map(text => ({
           text: `  •  ${text}`,
-          options: { fontSize: 16, color: 'E2E8F0', fontFace: 'Arial', breakLine: true }
+          options: { fontSize: 16, color: themeConfig.bodyColor, fontFace: themeConfig.bodyFont, breakLine: true }
         }));
         slide.addText(bulletItems, {
           x: 0.8, y: startY, w: '88%', h: 4.2,
@@ -584,14 +693,14 @@ ipcMain.handle('anya:generate-ppt', async (event, { title, slides = [], htmlCont
       } else if (s.content) {
         slide.addText(String(s.content), {
           x: 0.8, y: startY, w: '88%', h: 4.2,
-          fontSize: 15, color: 'E2E8F0', fontFace: 'Arial'
+          fontSize: 15, color: themeConfig.bodyColor, fontFace: themeConfig.bodyFont
         });
       }
 
       // Footer
       slide.addText(`${title || 'Executive Presentation'}  |  Generated by Aanya OS`, {
         x: 0.8, y: 6.8, w: '88%', h: 0.4,
-        fontSize: 9, color: '64748B', fontFace: 'Courier'
+        fontSize: 9, color: themeConfig.footerColor, fontFace: themeConfig.badgeFont
       });
     });
 
@@ -603,6 +712,122 @@ ipcMain.handle('anya:generate-ppt', async (event, { title, slides = [], htmlCont
     return { success: true, pptxPath, path: pptxPath, title: safeTitle };
   } catch (err) {
     console.error('[PPT] Real .pptx generation failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// ─── WhatsApp Automation via Spotlight + Keyboard ────────────────────────────
+// Opens WhatsApp via Spotlight, navigates to a contact, sends a message or makes a call
+ipcMain.handle('anya:whatsapp-action', async (event, { contact, message, action }) => {
+  if (process.platform !== 'darwin') {
+    return { success: false, error: 'WhatsApp automation only supported on macOS' };
+  }
+
+  try {
+    const actionType = (action || 'message').toLowerCase(); // 'message' | 'call'
+
+    if (actionType === 'call') {
+      // Open WhatsApp via Spotlight, navigate to contact, then trigger call via Ctrl+Tab x11 + Space
+      const script = `
+        -- Step 1: Open Spotlight
+        tell application "System Events"
+          keystroke space using command down
+          delay 0.8
+        end tell
+
+        -- Step 2: Type "whatsapp"
+        tell application "System Events"
+          keystroke "whatsapp"
+          delay 1.2
+        end tell
+
+        -- Step 3: Press Tab once to move to result, then type contact name
+        tell application "System Events"
+          key code 48
+          delay 0.3
+          keystroke "${contact.replace(/"/g, '\\"')}"
+          delay 1.5
+        end tell
+
+        -- Step 4: Press Tab once more, then Return to open the chat
+        tell application "System Events"
+          key code 48
+          delay 0.3
+          key code 36
+          delay 2.0
+        end tell
+
+        -- Step 5: Press Control+Tab 11 times with delay to navigate to call icon
+        tell application "System Events"
+          repeat 11 times
+            keystroke tab using control down
+            delay 0.18
+          end repeat
+          delay 0.3
+        end tell
+
+        -- Step 6: Press Space to trigger the call button
+        tell application "System Events"
+          keystroke space
+          delay 0.3
+        end tell
+
+        return "call_initiated"
+      `;
+      const result = await runAppleScript(script);
+      return { success: true, action: 'call', contact, result };
+
+    } else {
+      // Send a message: open WhatsApp via Spotlight → navigate to contact → open chat → type message → send
+      const safeMsg = (message || '').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+      const script = `
+        -- Step 1: Open Spotlight
+        tell application "System Events"
+          keystroke space using command down
+          delay 0.8
+        end tell
+
+        -- Step 2: Type "whatsapp"
+        tell application "System Events"
+          keystroke "whatsapp"
+          delay 1.2
+        end tell
+
+        -- Step 3: Press Tab once to focus the result, then type contact name
+        tell application "System Events"
+          key code 48
+          delay 0.3
+          keystroke "${contact.replace(/"/g, '\\"')}"
+          delay 1.5
+        end tell
+
+        -- Step 4: Press Tab once more, then Return to open the chat
+        tell application "System Events"
+          key code 48
+          delay 0.3
+          key code 36
+          delay 2.0
+        end tell
+
+        -- Step 5: Type the message
+        tell application "System Events"
+          keystroke "${safeMsg}"
+          delay 0.4
+        end tell
+
+        -- Step 6: Press Return to send
+        tell application "System Events"
+          key code 36
+          delay 0.2
+        end tell
+
+        return "message_sent"
+      `;
+      const result = await runAppleScript(script);
+      return { success: true, action: 'message', contact, message, result };
+    }
+  } catch (err) {
+    console.error('[WhatsApp Automation] Error:', err);
     return { success: false, error: err.message };
   }
 });

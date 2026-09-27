@@ -2,8 +2,22 @@
  * ANYA NEURAL ENGINE (Zero-Server Autonomous On-Device Brain)
  * Direct Multi-Tier Provider Failover: Gemini 2.0 Flash -> Groq Llama -> OpenRouter
  * Key Rotation, Cooldown Tracking, Token Analytics & Voice Synthesis
+ * Updated to use Supabase backend with localStorage fallback
  */
 
+import {
+  saveSettings as dbSaveSettings,
+  getNotes as dbGetNotes,
+  createNote as dbCreateNote,
+  updateNote as dbUpdateNote,
+  deleteNote as dbDeleteNote,
+  getTasks as dbGetTasks,
+  createTask as dbCreateTask,
+  updateTask as dbUpdateTask,
+  deleteTask as dbDeleteTask
+} from './db.js';
+
+// Storage keys for localStorage fallback
 const STORAGE_KEYS = {
   LOCAL_CHATS: 'anya_local_chats',
   SETTINGS: 'anya_settings',
@@ -116,31 +130,27 @@ export const keyManager = new KeyManager();
 // Track token usage
 export function recordTokenUsage(provider, promptTokens = 0, completionTokens = 0) {
   try {
-    const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.TOKEN_USAGE) || '{}');
-    if (!current[provider]) {
-      current[provider] = { prompt: 0, completion: 0, total: 0 };
-    }
-    current[provider].prompt += promptTokens;
-    current[provider].completion += completionTokens;
-    current[provider].total += (promptTokens + completionTokens);
-    localStorage.setItem(STORAGE_KEYS.TOKEN_USAGE, JSON.stringify(current));
-    window.dispatchEvent(new CustomEvent('anya-tokens-updated', { detail: current }));
-  } catch (e) {
-    console.error('Failed to record token usage:', e);
-  }
+    const raw = localStorage.getItem(STORAGE_KEYS.TOKEN_USAGE);
+    const data = raw ? JSON.parse(raw) : { gemini: { total: 0 }, groq: { total: 0 }, openrouter: { total: 0 }, freellmapi: { total: 0 } };
+    if (!data[provider]) data[provider] = { total: 0 };
+    data[provider].total = (data[provider].total || 0) + promptTokens + completionTokens;
+    localStorage.setItem(STORAGE_KEYS.TOKEN_USAGE, JSON.stringify(data));
+  } catch (e) {}
 }
 
 export function getTokenUsage() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.TOKEN_USAGE) || '{}');
-  } catch {
-    return {};
+    const raw = localStorage.getItem(STORAGE_KEYS.TOKEN_USAGE);
+    return raw ? JSON.parse(raw) : { gemini: { total: 0 }, groq: { total: 0 }, openrouter: { total: 0 }, freellmapi: { total: 0 } };
+  } catch (e) {
+    return { gemini: { total: 0 }, groq: { total: 0 }, openrouter: { total: 0 }, freellmapi: { total: 0 } };
   }
 }
 
 export function clearTokenUsage() {
-  localStorage.setItem(STORAGE_KEYS.TOKEN_USAGE, JSON.stringify({}));
-  window.dispatchEvent(new CustomEvent('anya-tokens-updated', { detail: {} }));
+  try {
+    localStorage.removeItem(STORAGE_KEYS.TOKEN_USAGE);
+  } catch (e) {}
 }
 
 // System Prompt for Aanya (ANYA)
@@ -198,10 +208,12 @@ SUPPORTED CLIENT TOOLS:
 7. "web_search": { "query": "latest news", "engine": "google|youtube|duckduckgo|github|wikipedia|reddit" }
 8. "device_action": { "action": "battery|vibrate|volume|flashlight", "value": "..." }
 9. "media_control": { "action": "play|pause|next|prev", "app": "ytmusic|youtube|spotify", "query": "optional song name or artist" }
-10. "generate_pdf": { "title": "Document Title", "content": "Full markdown content of the PDF" }
-11. "generate_ppt": { "title": "Presentation Title", "slides": [ { "title": "Slide 1: Title", "subtitle": "Subtitle", "content": ["Point A", "Point B"] } ] }
+10. "generate_pdf": { "title": "Document Title", "content": "Full markdown content", "theme": "cyberpunk|minimalist|corporate|academic" }
+    - DESIGN: You can choose a theme. Default is "cyberpunk". Use "minimalist" for clean white designs, "corporate" for professional blue styles, or "academic" for formal papers.
+11. "generate_ppt": { "title": "Presentation Title", "slides": [ { "title": "Slide Title", "subtitle": "...", "content": ["Point A", "Point B"] } ], "theme": "cyberpunk|minimalist|corporate|academic" }
     - USE THIS whenever the user asks to "generate a PPT", "make a presentation", "create slides", "powerpoint", "PPTX", etc.
-    - Emits 16:9 landscape presentation slide cards, saved to ~/Desktop/Presentation_<title>.pdf and Presentation_<title>.html and opened in Preview.
+    - DESIGN: You can choose a theme. Each slide should be visual and impactful.
+    - Emits 16:9 landscape presentation slide deck, saved to ~/Desktop/Presentation_<title>.pptx and opened.
 12. "create_file": { "filePath": "~/Desktop/my_app/index.html", "content": "<!DOCTYPE html>..." }
     - Autonomously creates and writes source files directly to disk.
 13. "create_folder": { "folderPath": "~/Desktop/my_app/src" }
@@ -488,7 +500,7 @@ export async function thinkOnDevice(messages, userSettings, attachment = null) {
   }
 
   const providerOrder = [];
-  
+
   if (userSettings.primaryProvider === 'groq') {
     providerOrder.push('groq', 'gemini', 'openrouter');
   } else if (userSettings.primaryProvider === 'openrouter') {
@@ -629,10 +641,10 @@ function fallbackSpeech(text) {
 
   // Try to pick a crisp English voice
   const voices = window.speechSynthesis.getVoices();
-  const preferredVoice = voices.find(v => 
-    v.name.includes('Samantha') || 
-    v.name.includes('Daniel') || 
-    v.name.includes('Natural') || 
+  const preferredVoice = voices.find(v =>
+    v.name.includes('Samantha') ||
+    v.name.includes('Daniel') ||
+    v.name.includes('Natural') ||
     v.name.includes('Google UK English Female') ||
     (v.lang.startsWith('en') && !v.localService)
   ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
@@ -681,8 +693,9 @@ export function triggerHaptic(pattern = 50) {
 // Storage Helpers
 export function getLocalChats() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_CHATS) || '[]');
-  } catch {
+    const raw = localStorage.getItem(STORAGE_KEYS.LOCAL_CHATS);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
     return [];
   }
 }
@@ -691,30 +704,17 @@ export function saveLocalChats(chats) {
   try {
     localStorage.setItem(STORAGE_KEYS.LOCAL_CHATS, JSON.stringify(chats));
   } catch (e) {
-    console.error('Failed to save chats:', e);
+    console.error('Failed to save local chats:', e);
   }
 }
 
 export function getSavedSettings() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (
-        !parsed.geminiModel ||
-        parsed.geminiModel.includes('gemini-2.0') ||
-        parsed.geminiModel.includes('gemini-1.5') ||
-        parsed.geminiModel.includes('gemini-2.5-flash')
-      ) {
-        parsed.geminiModel = 'gemini-3.6-flash';
-      }
-      if (!parsed.assistantName) {
-        parsed.assistantName = 'Aanya';
-      }
-      return { ...DEFAULT_SETTINGS, ...parsed };
-    }
-  } catch {}
-  return DEFAULT_SETTINGS;
+    const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    return raw ? JSON.parse(raw) : DEFAULT_SETTINGS;
+  } catch (e) {
+    return DEFAULT_SETTINGS;
+  }
 }
 
 export function saveSettings(settings) {
@@ -723,4 +723,84 @@ export function saveSettings(settings) {
   } catch (e) {
     console.error('Failed to save settings:', e);
   }
+  // Sync to database if available
+  try {
+    dbSaveSettings(settings).catch(() => {});
+  } catch {}
 }
+
+// Notes helpers - using db.js
+export function getNotes() {
+  return dbGetNotes();
+}
+
+export function saveNotes(notes) {
+  // Individual note operations are handled via db.js
+  // This is kept for compatibility but individual operations should be used
+  return Promise.resolve();
+}
+
+export function createNote(noteData) {
+  return dbCreateNote(noteData);
+}
+
+export function updateNote(noteId, updates) {
+  return dbUpdateNote(noteId, updates);
+}
+
+export function deleteNote(noteId) {
+  return dbDeleteNote(noteId);
+}
+
+// Tasks helpers - using db.js
+export function getTasks() {
+  return dbGetTasks();
+}
+
+export function saveTasks(tasks) {
+  // Individual task operations are handled via db.js
+  // This is kept for compatibility but individual operations should be used
+  return Promise.resolve();
+}
+
+export function createTask(taskData) {
+  return dbCreateTask(taskData);
+}
+
+export function updateTask(taskId, updates) {
+  return dbUpdateTask(taskId, updates);
+}
+
+export function deleteTask(taskId) {
+  return dbDeleteTask(taskId);
+}
+
+// Active user helper for guest mode
+export const getActiveUser = () => {
+  const customUser = localStorage.getItem('anya_user_profile');
+  if (customUser) {
+    try {
+      return JSON.parse(customUser);
+    } catch {}
+  }
+  return {
+    id: 'boss-001',
+    email: 'boss@anya.ai',
+    name: 'Boss',
+    role: 'Commander',
+    mode: 'Executive Local Guest'
+  };
+};
+
+export const saveUserProfile = (profile) => {
+  localStorage.setItem('anya_user_profile', JSON.stringify(profile));
+};
+
+// Guest mode functions
+export const isGuestMode = () => {
+  return localStorage.getItem('anya_guest_mode') !== 'false';
+};
+
+export const setGuestMode = (enabled = true) => {
+  localStorage.setItem('anya_guest_mode', enabled ? 'true' : 'false');
+};

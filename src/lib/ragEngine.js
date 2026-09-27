@@ -9,78 +9,50 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-// ─── TF-IDF / Cosine Similarity Vector Store ───────────────────────────────
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
+// Initialize Gemini for Embeddings
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
+const model = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+
+// Advanced RAG Vector Store using Embeddings
 class RAGVectorStore {
   constructor() {
-    this.documents = []; // { id, title, content, url, tokens, vector }
+    this.documents = []; // { id, title, content, url, embedding }
   }
 
-  // Tokenize & normalize text into word frequency map
-  tokenize(text) {
-    if (!text) return new Map();
-    const words = text
-      .toLowerCase()
-      .replace(/[^\w\s]/gi, ' ')
-      .split(/\s+/)
-      .filter(w => w.length > 2);
-    
-    const freq = new Map();
-    for (const word of words) {
-      freq.set(word, (freq.get(word) || 0) + 1);
-    }
-    return freq;
+  async getEmbedding(text) {
+    const result = await model.embedContent(text);
+    return result.embedding.values;
   }
 
-  // Compute cosine similarity between two word frequency maps
-  cosineSimilarity(mapA, mapB) {
+  cosineSimilarity(vecA, vecB) {
     let dotProduct = 0;
     let normA = 0;
     let normB = 0;
-
-    for (const val of mapA.values()) normA += val * val;
-    for (const val of mapB.values()) normB += val * val;
-
-    if (normA === 0 || normB === 0) return 0;
-
-    for (const [word, countA] of mapA.entries()) {
-      if (mapB.has(word)) {
-        dotProduct += countA * mapB.get(word);
-      }
+    for (let i = 0; i < vecA.length; i++) {
+      dotProduct += vecA[i] * vecB[i];
+      normA += vecA[i] * vecA[i];
+      normB += vecB[i] * vecB[i];
     }
-
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
   }
 
-  // Add document/snippet chunk to vector store
-  addDocument(id, title, content, url = '') {
-    const tokens = this.tokenize(`${title} ${content}`);
-    this.documents.push({
-      id,
-      title,
-      content,
-      url,
-      tokens,
-    });
+  async addDocument(id, title, content, url = '') {
+    const embedding = await this.getEmbedding(`${title} ${content}`);
+    this.documents.push({ id, title, content, url, embedding });
   }
 
-  // Clear indexed documents
   clear() {
     this.documents = [];
   }
 
-  // Retrieve top-K most relevant snippets for a query
-  query(queryText, topK = 3) {
-    const queryTokens = this.tokenize(queryText);
-    if (queryTokens.size === 0 || this.documents.length === 0) {
-      return this.documents.slice(0, topK);
-    }
-
+  async query(queryText, topK = 3) {
+    const queryEmbedding = await this.getEmbedding(queryText);
     const scored = this.documents.map(doc => ({
       ...doc,
-      score: this.cosineSimilarity(queryTokens, doc.tokens)
+      score: this.cosineSimilarity(queryEmbedding, doc.embedding)
     }));
-
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, topK);
   }
@@ -194,12 +166,12 @@ export async function searchAndRetrieveRAG(searchQuery) {
   }
 
   // Index snippets into Vector Store
-  rawSnippets.forEach((s, idx) => {
-    ragVectorStore.addDocument(`snippet_${idx}`, s.title, s.content, s.url);
-  });
+  await Promise.all(rawSnippets.map(async (s, idx) => {
+    await ragVectorStore.addDocument(`snippet_${idx}`, s.title, s.content, s.url);
+  }));
 
   // Query vector store for top-K ranked chunks
-  const rankedSnippets = ragVectorStore.query(query, 4);
+  const rankedSnippets = await ragVectorStore.query(query, 4);
 
   // Build RAG Context Block
   let ragContext = '';

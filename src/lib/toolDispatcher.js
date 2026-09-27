@@ -5,6 +5,8 @@
 
 import { triggerHaptic } from './neuralEngine';
 import { openApp, searchInApp, mediaControl, isAppOpen } from './deviceBridge';
+import { marked } from 'marked';
+marked.setOptions({ gfm: true, breaks: true });
 
 const _isElectron = typeof window !== 'undefined' && window?.electronAPI?.isElectron === true;
 const _isMac = typeof window !== 'undefined' && window?.electronAPI?.platform === 'darwin';
@@ -534,40 +536,22 @@ export async function executeWebSearch(query, engine = 'google', openExternal = 
  * Convert AI-generated markdown/text content into a styled PDF saved to ~/Desktop.
  * Called automatically by the tool handler when the AI emits { "tool": "generate_pdf" }.
  */
-export async function generatePDF(title, markdownContent) {
+export async function generatePDF(title, markdownContent, theme = 'cyberpunk') {
   if (!_isElectron) {
-    // Browser fallback: use browser print dialog
     const printWin = window.open('', '_blank');
-    printWin.document.write(`<html><head><title>${title}</title></head><body><pre style="font-family:Arial;font-size:12pt;line-height:1.6">${markdownContent}</pre></body></html>`);
+    printWin.document.write(`<html><head><title>${title}</title></head><body><pre>${markdownContent}</pre></body></html>`);
     printWin.document.close();
     printWin.print();
     return { success: true, method: 'browser_print' };
   }
 
-  // Convert simple markdown to clean HTML for the PDF renderer
-  const html = markdownContent
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
-    .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/^(?!<[hul]|<li|<\/)(.*)/gm, (m) => m.trim() ? m : '')
-    .replace(/^(.+)$/gm, (m) => (m.startsWith('<') ? m : `<p>${m}</p>`))
-    .replace(/<p><\/p>/g, '')
-    .replace(/<p>(<[hul])/g, '$1')
-    .replace(/(<\/[hul][^>]*>)<\/p>/g, '$1');
-
-  const result = await window.electronAPI.generatePDF(title, html);
+  const html = marked.parse(markdownContent);
+  const result = await window.electronAPI.generatePDF(title, html, theme);
   return result;
 }
 
 // ─── Autonomous 16:9 Presentation / PPT Generator ─────────────────────────────
-export async function generatePPT(title, slides, htmlContent) {
+export async function generatePPT(title, slides, htmlContent, theme = 'cyberpunk') {
   if (!_isElectron) {
     const printWin = window.open('', '_blank');
     printWin.document.write(`<html><head><title>${title}</title></head><body><h1>${title}</h1><pre>${JSON.stringify(slides, null, 2)}</pre></body></html>`);
@@ -576,7 +560,7 @@ export async function generatePPT(title, slides, htmlContent) {
     return { success: true, method: 'browser_print' };
   }
 
-  const result = await window.electronAPI.generatePPT(title, slides, htmlContent);
+  const result = await window.electronAPI.generatePPT(title, slides, htmlContent, theme);
   return result;
 }
 
@@ -615,4 +599,20 @@ export async function runCommand(command, cwd) {
     return { success: false, error: 'Terminal execution is available in desktop application mode.' };
   }
   return window.electronAPI.runCommand(command, cwd);
+}
+
+// ─── WhatsApp Contact Automation ───────────────────────────────────────────────
+// Uses Spotlight + keyboard automation to send WhatsApp messages or make WhatsApp calls
+// by contact name (no phone number needed). macOS Electron only.
+export async function executeWhatsAppAction(contact, message = '', action = 'message') {
+  if (!_isElectron || !window?.electronAPI?.whatsappAction) {
+    // Browser fallback: open WhatsApp web
+    const q = encodeURIComponent(message);
+    const fallback = action === 'call'
+      ? `https://web.whatsapp.com/`
+      : `https://web.whatsapp.com/`;
+    try { window.open(fallback, '_blank', 'noopener,noreferrer'); } catch {}
+    return { success: false, error: 'WhatsApp automation requires the desktop app (macOS).' };
+  }
+  return window.electronAPI.whatsappAction(contact, message, action);
 }

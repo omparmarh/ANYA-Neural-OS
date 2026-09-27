@@ -12,13 +12,19 @@
     "freellmapi": "node freellmapi/server/dist/index.js",
     "electron:dev": "NODE_ENV=development electron electron/main.cjs",
     "electron:build": "vite build && electron-builder --mac --arm64 --dir",
-    "electron:dmg": "vite build && electron-builder --mac --arm64"
+    "electron:dmg": "vite build && electron-builder --mac --arm64",
+    "electron:win": "vite build && electron-builder --win --x64",
+    "android:apk": "cd android-screener && ./gradlew assembleDebug --no-daemon && cp app/build/outputs/apk/debug/app-debug.apk ../dist/android-screener.apk",
+    "android:clean": "cd android-screener && ./gradlew clean --no-daemon"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.117.2",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "framer-motion": "^12.4.7",
     "lucide-react": "^0.475.0",
+    "marked": "^18.0.14",
     "pptxgenjs": "^4.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -50,6 +56,17 @@
       ],
       "darkModeSupport": true,
       "hardenedRuntime": false
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "sign": false
     },
     "files": [
       "dist/**/*",

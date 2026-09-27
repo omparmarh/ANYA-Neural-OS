@@ -8,10 +8,52 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
   const [facingMode, setFacingMode] = useState('environment'); // 'user' or 'environment'
   const [error, setError] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
-  const [mode, setMode] = useState('snapshot'); // 'snapshot' | 'live_chat'
+  const [mode, setMode] = useState('live_chat'); // 'snapshot' | 'live_chat'
   const [isListeningLive, setIsListeningLive] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
   const recognitionRef = useRef(null);
+  const isAnyaSpeakingRef = useRef(false);
+
+  // Manage auto-resume based on Aanya speech events
+  useEffect(() => {
+    const handleSpeechStarted = () => {
+      isAnyaSpeakingRef.current = true;
+      if (mode === 'live_chat' && isListeningLive) {
+        stopLiveSpeech();
+      }
+    };
+
+    const handleSpeechStopped = () => {
+      isAnyaSpeakingRef.current = false;
+      if (isOpen && mode === 'live_chat' && !isListeningLive) {
+        // Wait briefly for audio system to clear to avoid transcribing echo
+        setTimeout(() => {
+          if (isOpen && mode === 'live_chat' && !isAnyaSpeakingRef.current) {
+            startLiveSpeech();
+          }
+        }, 800);
+      }
+    };
+
+    window.addEventListener('anya-speech-started', handleSpeechStarted);
+    window.addEventListener('anya-speech-stopped', handleSpeechStopped);
+
+    return () => {
+      window.removeEventListener('anya-speech-started', handleSpeechStarted);
+      window.removeEventListener('anya-speech-stopped', handleSpeechStopped);
+    };
+  }, [isOpen, mode, isListeningLive]);
+
+  // Handle switching to live_chat mode automatically starting mic
+  useEffect(() => {
+    if (isOpen && mode === 'live_chat') {
+      if (!isListeningLive && !isAnyaSpeakingRef.current) {
+        startLiveSpeech();
+      }
+    } else {
+      stopLiveSpeech();
+    }
+  }, [isOpen, mode]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -109,20 +151,15 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
     setIsListeningLive(false);
   };
 
-  const toggleLiveSpeech = () => {
+  const startLiveSpeech = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('Speech recognition is not supported in this browser environment.');
-      return;
-    }
+    if (!SpeechRecognition) return;
 
-    if (isListeningLive) {
-      stopLiveSpeech();
-      return;
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
     }
 
     try {
-      stopLiveSpeech();
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
@@ -171,6 +208,20 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
     } catch (e) {
       console.warn('Failed to start live speech:', e);
       setIsListeningLive(false);
+    }
+  };
+
+  const toggleLiveSpeech = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser environment.');
+      return;
+    }
+
+    if (isListeningLive) {
+      stopLiveSpeech();
+    } else {
+      startLiveSpeech();
     }
   };
 

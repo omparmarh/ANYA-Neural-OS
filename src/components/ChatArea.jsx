@@ -1,9 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { 
-  Bot, User, Copy, Check, FileText, ExternalLink, 
-  Sparkles, Terminal, Volume2 
+import {
+  Bot, User, Copy, Check, FileText, ExternalLink,
+  Sparkles, Terminal, Volume2
 } from 'lucide-react';
+import { marked } from 'marked';
 import TimerWidget from './TimerWidget';
+
+marked.setOptions({ gfm: true, breaks: true });
 import AlarmWidget from './AlarmWidget';
 import NoteWidget from './NoteWidget';
 import TodoWidget from './TodoWidget';
@@ -82,11 +85,14 @@ export default function ChatArea({
         );
       }
 
-      // Regular text with basic formatting
+      // Render regular text as rich HTML via marked
+      const parsedHtml = marked.parse(part);
       return (
-        <span key={pIdx} className="whitespace-pre-wrap">
-          {part}
-        </span>
+        <div
+          key={pIdx}
+          className="prose prose-invert max-w-none text-slate-200 markdown-content leading-relaxed text-xs sm:text-sm"
+          dangerouslySetInnerHTML={{ __html: parsedHtml }}
+        />
       );
     });
   };

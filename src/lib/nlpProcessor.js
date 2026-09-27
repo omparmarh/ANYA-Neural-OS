@@ -77,6 +77,19 @@ const SMS_INTENT_PATTERNS = [
   /(?:send|text|message|sms)\s+"(.+?)"\s+(?:to\s+)?([+\d][\d\s\-()]{5,17})/i,
 ];
 
+// WhatsApp by contact NAME (not number) — uses Spotlight-based keyboard automation
+const WHATSAPP_MSG_PATTERNS = [
+  /(?:send|write|type)\s+(?:a\s+)?(?:whatsapp\s+)?(?:message|msg|text)\s+(?:to\s+)?([a-zA-Z][\w\s]{1,30})\s+(?:on\s+whatsapp\s+)?["']?(.+?)["']?$/i,
+  /whatsapp\s+(?:message|msg)\s+(?:to\s+)?([a-zA-Z][\w\s]{1,30})\s+["']?(.+?)["']?$/i,
+  /(?:message|msg|text)\s+([a-zA-Z][\w\s]{1,30})\s+on\s+whatsapp\s+["']?(.+?)["']?$/i,
+];
+
+const WHATSAPP_CALL_PATTERNS = [
+  /(?:whatsapp\s+call|call\s+(?:on\s+)?whatsapp(?:\s+to)?)\s+([a-zA-Z][\w\s]{1,30})/i,
+  /(?:video\s+call|voice\s+call)\s+([a-zA-Z][\w\s]{1,30})\s+(?:on\s+)?(?:whatsapp|wa)/i,
+  /call\s+([a-zA-Z][\w\s]{1,30})\s+(?:on\s+)?whatsapp/i,
+];
+
 const TIMER_INTENT_PATTERNS = [
   /(?:set|start|create)\s+(?:a\s+)?timer\s+(?:for\s+)?(.+)/i,
   /remind\s+me\s+in\s+(.+)/i,
@@ -255,11 +268,30 @@ function classifyIntent(text, assistantName = 'Aanya') {
     return { type: 'retry' };
   }
 
+  // WhatsApp CALL by contact name (check BEFORE general call intent)
+  for (const pattern of WHATSAPP_CALL_PATTERNS) {
+    const m = text.match(pattern);
+    if (m) {
+      const contact = (m[1] || '').trim();
+      if (contact) return { type: 'whatsapp_contact', action: 'call', contact, silentAction: true };
+    }
+  }
+
+  // WhatsApp MESSAGE by contact name (check BEFORE general SMS intent)
+  for (const pattern of WHATSAPP_MSG_PATTERNS) {
+    const m = text.match(pattern);
+    if (m) {
+      const contact = (m[1] || '').trim();
+      const message = (m[2] || '').trim();
+      if (contact && message) return { type: 'whatsapp_contact', action: 'message', contact, message, silentAction: true };
+    }
+  }
+
   // Direct URL open
   if (URL_REGEX.test(text)) {
     URL_REGEX.lastIndex = 0;
     const url = text.match(URL_REGEX)?.[0];
-    return { type: 'open_url', url };
+    return { type: 'open_url', url, silentAction: true };
   }
   URL_REGEX.lastIndex = 0;
 
@@ -269,7 +301,7 @@ function classifyIntent(text, assistantName = 'Aanya') {
     if (m) {
       const phone = extractPhoneNumber(m[1] || m[2]);
       const body = (m[2] || m[1] || '').trim();
-      if (phone) return { type: 'sms', phone, body };
+      if (phone) return { type: 'sms', phone, body, silentAction: true };
     }
   }
 
@@ -278,7 +310,7 @@ function classifyIntent(text, assistantName = 'Aanya') {
     const m = lower.match(pattern);
     if (m) {
       const phone = extractPhoneNumber(m[1]);
-      if (phone) return { type: 'call', phone };
+      if (phone) return { type: 'call', phone, silentAction: true };
     }
   }
 
@@ -326,7 +358,7 @@ function classifyIntent(text, assistantName = 'Aanya') {
 
   // Open app / browser with query
   const appQuery = extractAppAndQuery(text);
-  if (appQuery) return { type: 'open_app', ...appQuery };
+  if (appQuery) return { type: 'open_app', ...appQuery, silentAction: true };
 
   // Open intent (generic)
   for (const pattern of OPEN_INTENT_PATTERNS) {
@@ -334,9 +366,9 @@ function classifyIntent(text, assistantName = 'Aanya') {
     if (m) {
       const target = (m[1] || '').trim();
       const alias = APP_ALIASES[target];
-      if (alias) return { type: 'open_app', app: alias, query: m[3] || '' };
+      if (alias) return { type: 'open_app', app: alias, query: m[3] || '', silentAction: true };
       // Could be a search query for unknown app
-      return { type: 'open_app', app: target, query: m[3] || '' };
+      return { type: 'open_app', app: target, query: m[3] || '', silentAction: true };
     }
   }
 
@@ -358,13 +390,13 @@ function classifyIntent(text, assistantName = 'Aanya') {
     }
   }
 
-  // Search intent
+  // Search intent — "search for X" silently opens browser, no chat reply needed
   for (const pattern of SEARCH_INTENT_PATTERNS) {
     const m = lower.match(pattern);
     if (m) {
       const query = (m[1] || '').trim();
       const engine = m[2]?.toLowerCase() || 'google';
-      return { type: 'web_search', query, engine };
+      return { type: 'web_search', query, engine, silentAction: true };
     }
   }
 
@@ -421,6 +453,14 @@ CRITICAL RULES:
 
     case 'web_search':
       parts.push(`[NLP] Web search for "${intent.query}" on ${intent.engine}. Use web_search tool: { "tool": "web_search", "args": { "query": "${intent.query}", "engine": "${intent.engine}" } }`);
+      break;
+
+    case 'whatsapp_contact':
+      if (intent.action === 'call') {
+        parts.push(`[NLP] WhatsApp CALL request detected. Contact: "${intent.contact}". Use whatsapp_action tool: { "tool": "whatsapp_action", "args": { "contact": "${intent.contact}", "action": "call" } }`);
+      } else {
+        parts.push(`[NLP] WhatsApp MESSAGE request detected. Contact: "${intent.contact}", Message: "${intent.message}". Use whatsapp_action tool: { "tool": "whatsapp_action", "args": { "contact": "${intent.contact}", "message": "${intent.message}", "action": "message" } }`);
+      }
       break;
 
     case 'pdf':
