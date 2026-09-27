@@ -316,18 +316,18 @@ function createWindow() {
 
   // Load production bundle or dev server
   const distPath = path.join(__dirname, '../dist/index.html');
-  const isDev = !app.isPackaged && process.env.NODE_ENV === 'development';
 
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:5173').catch(() => {
-      if (fs.existsSync(distPath)) mainWindow.loadFile(distPath);
+  // Try connecting to Vite dev server first (ports 5173 / 5174), fallback to bundled dist
+  mainWindow.loadURL('http://localhost:5173').catch(() => {
+    mainWindow.loadURL('http://localhost:5174').catch(() => {
+      console.warn('[ANYA] Dev servers not reachable, loading bundled dist...');
+      if (fs.existsSync(distPath)) {
+        mainWindow.loadFile(distPath);
+      } else {
+        mainWindow.loadURL('http://localhost:5173');
+      }
     });
-  } else {
-    mainWindow.loadFile(distPath).catch(err => {
-      console.warn('[ANYA] loadFile error, trying loadURL fallback:', err);
-      mainWindow.loadURL('http://localhost:5173').catch(() => {});
-    });
-  }
+  });
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.warn('[ANYA] WebContents load failed:', errorDescription);
@@ -338,6 +338,7 @@ function createWindow() {
 
   mainWindow.show();
   mainWindow.focus();
+  mainWindow.webContents.openDevTools();
 
   // All external link opens → use shell.openExternal
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
