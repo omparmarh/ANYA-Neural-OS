@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Menu, Settings, Battery, BatteryCharging,
-  Flashlight, VolumeX, Bell, Minus, X, Maximize2
+  Flashlight, VolumeX, Bell, Minus, X, Maximize2, Plus
 } from 'lucide-react';
 import VoiceWaveform from './VoiceWaveform';
 import { getDeviceBattery } from '../lib/neuralEngine';
@@ -47,6 +47,7 @@ export default function Header({
   settings,
   onOpenSettings,
   onToggleSidebar,
+  onNewThread,
   isListening,
   isSpeaking,
   onEmergencyStop,
@@ -151,6 +152,23 @@ export default function Header({
               {settings?.mode === 'autonomous' ? 'Autonomous Mode' : 'Daemon Linked'}
             </div>
           </div>
+
+          {/* New Session quick button */}
+          {onNewThread && (
+            <button
+              onClick={onNewThread}
+              className="hidden md:flex items-center gap-1.5 ml-3 px-2.5 py-1 rounded-xl text-[11px] font-mono font-medium transition-all group app-no-drag hover:border-cyan-400/60"
+              style={{
+                background: 'rgba(0, 240, 255, 0.08)',
+                border: '1px solid rgba(0, 240, 255, 0.28)',
+                color: '#67e8f9',
+              }}
+              title="Start New Session"
+            >
+              <Plus className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-90 transition-transform" />
+              <span>New Session</span>
+            </button>
+          )}
         </div>
       </div>
 

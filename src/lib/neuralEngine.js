@@ -571,10 +571,18 @@ export async function speakOnDevice(text, userSettings) {
   stopSpeaking();
   if (!userSettings.voiceEnabled || !text) return;
 
-  // Clean text of markdown and JSON tool blocks before speaking
+  // Thoroughly clean text of all markdown syntax, code, asterisks, URLs, and artifacts
   const cleanText = text
     .replace(/```[\s\S]*?```/g, '')
-    .replace(/[*_#`~[\]()]/g, '')
+    .replace(/`[^`]*`/g, '')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[*_#~>|\\-]/g, ' ')
+    .replace(/[.]{2,}/g, '.')
+    .replace(/[!]{2,}/g, '!')
+    .replace(/[?]{2,}/g, '?')
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
 

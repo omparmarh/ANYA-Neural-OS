@@ -1,8 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Send, Mic, MicOff, Paperclip, Camera, X, FileText, 
-  Sparkles, ArrowUp 
-} from 'lucide-react';
+import { Send, Mic, MicOff, Paperclip, Camera, X, FileText, ArrowUp } from 'lucide-react';
 import { triggerHaptic } from '../lib/neuralEngine';
 
 export default function InputBar({
@@ -19,7 +16,6 @@ export default function InputBar({
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Auto-resize textarea height
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -30,34 +26,24 @@ export default function InputBar({
   const handleSend = (e) => {
     if (e) e.preventDefault();
     if ((!inputText.trim() && !attachment) || disabled) return;
-
     triggerHaptic(30);
     onSendMessage(inputText.trim(), attachment);
     setInputText('');
     setAttachment(null);
-
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
       setAttachment({
-        name: file.name,
-        type: file.type,
-        size: file.size,
+        name: file.name, type: file.type, size: file.size,
         base64: event.target?.result,
         previewUrl: file.type.startsWith('image/') ? event.target?.result : null
       });
@@ -66,41 +52,58 @@ export default function InputBar({
     e.target.value = '';
   };
 
+  const hasContent = inputText.trim() || attachment;
+
   return (
-    <div className="relative border-t border-cyan-500/20 bg-obsidian-950/95 backdrop-blur-xl p-3 sm:p-4 z-20">
-      {/* Live Interim Speech Bubble */}
+    <div
+      className="relative z-20 input-bar-glass px-3 py-3 sm:px-4"
+      style={{ paddingBottom: `max(12px, env(safe-area-inset-bottom, 12px))` }}
+    >
+      {/* Live Interim Transcript */}
       {isListening && interimTranscript && (
-        <div className="absolute -top-12 left-4 right-4 bg-obsidian-900/90 border border-emerald-500/40 rounded-xl px-3 py-2 flex items-center gap-2 shadow-lg animate-pulse z-30">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-          <span className="text-xs font-mono text-emerald-300 truncate">
-            {interimTranscript}
-          </span>
+        <div
+          className="absolute -top-11 left-3 right-3 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-mono animate-fade-up"
+          style={{
+            background: 'rgba(10,20,36,0.95)',
+            border: '1px solid rgba(16,185,129,0.40)',
+            color: '#6ee7b7',
+            backdropFilter: 'blur(14px)',
+          }}
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+          <span className="truncate">{interimTranscript}</span>
         </div>
       )}
 
-      {/* Attachment Preview Chip */}
+      {/* Attachment Chip */}
       {attachment && (
-        <div className="mb-2 inline-flex items-center gap-2 bg-obsidian-900 border border-cyan-500/40 rounded-xl px-3 py-1.5 shadow-sm">
+        <div
+          className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl"
+          style={{
+            background: 'rgba(6,9,18,0.90)',
+            border: '1px solid rgba(0,220,255,0.28)',
+          }}
+        >
           {attachment.previewUrl ? (
-            <img src={attachment.previewUrl} alt="Preview" className="w-6 h-6 rounded object-cover" />
+            <img src={attachment.previewUrl} alt="Preview" className="w-5 h-5 rounded object-cover" />
           ) : (
             <FileText className="w-4 h-4 text-cyan-400" />
           )}
-          <span className="text-xs font-mono text-slate-200 truncate max-w-[180px]">
+          <span className="text-xs font-mono text-slate-300 truncate max-w-[160px]">
             {attachment.name}
           </span>
           <button
             onClick={() => setAttachment(null)}
-            className="p-0.5 rounded text-slate-400 hover:text-red-400"
+            className="text-slate-500 hover:text-red-400 transition-colors"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* Main Input Controls */}
+      {/* Main row */}
       <form onSubmit={handleSend} className="flex items-end gap-2">
-        {/* Hidden File Input */}
+        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -109,13 +112,13 @@ export default function InputBar({
           className="hidden"
         />
 
-        {/* Action Buttons: Camera & File Upload */}
-        <div className="flex items-center gap-1">
+        {/* Left action buttons */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <button
             type="button"
             onClick={onOpenLiveCamera}
-            className="p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 border border-slate-800 transition-colors"
-            title="Open Live Camera Scanner"
+            className="btn-icon app-no-drag"
+            title="Open Camera"
           >
             <Camera className="w-4 h-4" />
           </button>
@@ -123,50 +126,55 @@ export default function InputBar({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 border border-slate-800 transition-colors"
-            title="Attach Document / Image"
+            className="btn-icon app-no-drag"
+            title="Attach File"
           >
             <Paperclip className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Text Input Box */}
-        <div className="flex-1 relative rounded-xl border border-cyan-500/30 bg-obsidian-900/90 focus-within:border-cyan-500/60 focus-within:shadow-cyan-glow/20 transition-all">
+        {/* Text input */}
+        <div
+          className="flex-1 glass-input rounded-2xl relative overflow-hidden"
+          style={{ minHeight: '40px' }}
+        >
           <textarea
             ref={textareaRef}
             rows={1}
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
+            onChange={e => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={`Command ${assistantName} or ask anything...`}
+            placeholder={`Message ${assistantName}…`}
             disabled={disabled}
-            className="w-full bg-transparent px-3.5 py-2.5 text-xs sm:text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none resize-none max-h-32"
+            className="w-full bg-transparent px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none resize-none max-h-32 app-no-drag"
+            style={{
+              fontFamily: 'var(--font-sans)',
+              lineHeight: '1.5',
+            }}
           />
         </div>
 
-        {/* Voice Recognition Mic Trigger */}
-        <button
-          type="button"
-          onClick={onToggleSpeechRecognition}
-          className={`p-2.5 rounded-xl border transition-all ${
-            isListening 
-              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow-emerald-glow animate-pulse' 
-              : 'bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 border border-slate-800'
-          }`}
-          title={isListening ? 'Stop Listening' : 'Start Speech Recognition'}
-        >
-          {isListening ? <Mic className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-        </button>
+        {/* Mic + Send */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button
+            type="button"
+            onClick={onToggleSpeechRecognition}
+            className={`btn-icon app-no-drag ${isListening ? 'btn-mic-active' : ''}`}
+            title={isListening ? 'Stop Listening' : 'Voice Input'}
+            style={{ animation: isListening ? 'glow-pulse 1.5s ease-in-out infinite' : 'none' }}
+          >
+            {isListening ? <Mic className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          </button>
 
-        {/* Send Button */}
-        <button
-          type="submit"
-          disabled={disabled || (!inputText.trim() && !attachment)}
-          className="p-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 disabled:hover:bg-cyan-500 text-slate-950 font-bold border border-cyan-400 shadow-cyan-glow transition-all active:scale-95"
-          title="Send Message"
-        >
-          <ArrowUp className="w-4 h-4 stroke-[2.5]" />
-        </button>
+          <button
+            type="submit"
+            disabled={disabled || !hasContent}
+            className="btn-send app-no-drag"
+            title="Send"
+          >
+            <ArrowUp className="w-4 h-4 stroke-[2.5]" />
+          </button>
+        </div>
       </form>
     </div>
   );

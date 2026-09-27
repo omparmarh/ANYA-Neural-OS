@@ -1,5 +1,6 @@
 package ai.anya.callscreener
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -10,6 +11,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebResourceRequest
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
@@ -36,18 +38,15 @@ class MainActivity : AppCompatActivity() {
                 request: WebResourceRequest
             ) = assetLoader.shouldInterceptRequest(request.url)
 
+            // Override for Android 24+ (WebResourceRequest)
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                val url = request.url.toString()
-                if (url.contains("appassets.androidplatform.net")) {
-                    return false
-                }
-                try {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                    startActivity(intent)
-                    return true
-                } catch (e: Exception) {
-                    return false
-                }
+                return handleUriScheme(request.url.toString())
+            }
+
+            // Override for older Android versions
+            @Deprecated("Deprecated in Java")
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                return handleUriScheme(url)
             }
         }
 
@@ -71,6 +70,58 @@ class MainActivity : AppCompatActivity() {
         setContentView(webView)
         WebView.setWebContentsDebuggingEnabled(true)
         webView.loadUrl("https://appassets.androidplatform.net/assets/index.html")
+    }
+
+    private fun handleUriScheme(url: String): Boolean {
+        if (url.contains("appassets.androidplatform.net")) {
+            return false
+        }
+
+        val isHttp = url.startsWith("http://") || url.startsWith("https://")
+        if (isHttp) {
+            // For standard external HTTP links, open them in the external browser
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                startActivity(intent)
+                return true
+            } catch (e: Exception) {
+                return false
+            }
+        } else {
+            // For custom schemes (whatsapp://, instagram://, tel:, sms:, intent://, etc.)
+            try {
+                val intent = if (url.startsWith("intent://")) {
+                    Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                } else {
+                    Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                }
+                startActivity(intent)
+                return true
+            } catch (e: ActivityNotFoundException) {
+                // If native app is not installed, try to extract package and open Play Store
+                try {
+                    if (url.startsWith("intent://")) {
+                        val parsedIntent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                        val fallbackUrl = parsedIntent.getStringExtra("browser_fallback_url")
+                        if (fallbackUrl != null) {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl))
+                            startActivity(intent)
+                            return true
+                        }
+                    }
+                    val appName = when {
+                        url.contains("whatsapp") -> "WhatsApp"
+                        url.contains("instagram") -> "Instagram"
+                        url.contains("spotify") -> "Spotify"
+                        else -> "App"
+                    }
+                    Toast.makeText(this, "$appName is not installed", Toast.LENGTH_SHORT).show()
+                } catch (ex: Exception) {}
+                return true
+            } catch (e: Exception) {
+                return true
+            }
+        }
     }
 
     override fun onBackPressed() {

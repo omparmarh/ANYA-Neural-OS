@@ -730,47 +730,36 @@ ipcMain.handle('anya:whatsapp-action', async (event, { contact, message, action 
     const actionType = (action || 'message').toLowerCase(); // 'message' | 'call'
 
     if (actionType === 'call') {
-      // Open WhatsApp via Spotlight, navigate to contact, then trigger call via Ctrl+Tab x11 + Space
       const script = `
-        -- Step 1: Open Spotlight
-        tell application "System Events"
-          keystroke space using command down
+        try
+          tell application "WhatsApp" to activate
           delay 0.8
-        end tell
+        on error
+          tell application "System Events"
+            keystroke space using command down
+            delay 0.8
+            keystroke "whatsapp"
+            delay 1.0
+            key code 36
+            delay 1.5
+          end tell
+        end try
 
-        -- Step 2: Type "whatsapp"
         tell application "System Events"
-          keystroke "whatsapp"
-          delay 1.2
-        end tell
-
-        -- Step 3: Press Tab once to move to result, then type contact name
-        tell application "System Events"
-          key code 48
-          delay 0.3
+          -- Focus search/chat inside WhatsApp
+          keystroke "f" using command down
+          delay 0.4
           keystroke "${contact.replace(/"/g, '\\"')}"
-          delay 1.5
-        end tell
-
-        -- Step 4: Press Tab once more, then Return to open the chat
-        tell application "System Events"
-          key code 48
-          delay 0.3
+          delay 1.2
           key code 36
-          delay 2.0
-        end tell
+          delay 1.2
 
-        -- Step 5: Press Control+Tab 11 times with delay to navigate to call icon
-        tell application "System Events"
+          -- Navigate to call icon
           repeat 11 times
             keystroke tab using control down
-            delay 0.18
+            delay 0.15
           end repeat
           delay 0.3
-        end tell
-
-        -- Step 6: Press Space to trigger the call button
-        tell application "System Events"
           keystroke space
           delay 0.3
         end tell
@@ -781,47 +770,38 @@ ipcMain.handle('anya:whatsapp-action', async (event, { contact, message, action 
       return { success: true, action: 'call', contact, result };
 
     } else {
-      // Send a message: open WhatsApp via Spotlight → navigate to contact → open chat → type message → send
       const safeMsg = (message || '').replace(/"/g, '\\"').replace(/\n/g, '\\n');
       const script = `
-        -- Step 1: Open Spotlight
-        tell application "System Events"
-          keystroke space using command down
+        try
+          tell application "WhatsApp" to activate
           delay 0.8
-        end tell
+        on error
+          tell application "System Events"
+            keystroke space using command down
+            delay 0.8
+            keystroke "whatsapp"
+            delay 1.0
+            key code 36
+            delay 1.5
+          end tell
+        end try
 
-        -- Step 2: Type "whatsapp"
         tell application "System Events"
-          keystroke "whatsapp"
-          delay 1.2
-        end tell
-
-        -- Step 3: Press Tab once to focus the result, then type contact name
-        tell application "System Events"
-          key code 48
-          delay 0.3
-          keystroke "${contact.replace(/"/g, '\\"')}"
-          delay 1.5
-        end tell
-
-        -- Step 4: Press Tab once more, then Return to open the chat
-        tell application "System Events"
-          key code 48
-          delay 0.3
-          key code 36
-          delay 2.0
-        end tell
-
-        -- Step 5: Type the message
-        tell application "System Events"
-          keystroke "${safeMsg}"
+          -- Search for contact in WhatsApp
+          keystroke "f" using command down
           delay 0.4
-        end tell
-
-        -- Step 6: Press Return to send
-        tell application "System Events"
+          keystroke "${contact.replace(/"/g, '\\"')}"
+          delay 1.2
           key code 36
-          delay 0.2
+          delay 1.0
+
+          -- Type and send message
+          if "${safeMsg}" is not "" then
+            keystroke "${safeMsg}"
+            delay 0.4
+            key code 36
+            delay 0.2
+          end if
         end tell
 
         return "message_sent"

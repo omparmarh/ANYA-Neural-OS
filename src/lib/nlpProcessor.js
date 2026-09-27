@@ -277,6 +277,17 @@ function classifyIntent(text, assistantName = 'Aanya') {
     }
   }
 
+  // Natural "send [message] to [contact]" pattern (e.g. "send hello to pappa", "send I am coming to mom")
+  const sendMsgToContactMatch = text.match(/(?:send|message|text|say)\s+["']?(.+?)["']?\s+to\s+([a-zA-Z][\w\s]{1,30})(?:\s+on\s+(?:whatsapp|wa))?$/i);
+  if (sendMsgToContactMatch) {
+    const rawMsg = sendMsgToContactMatch[1].trim();
+    const rawContact = sendMsgToContactMatch[2].trim();
+    // Ensure it's not a phone number (phone numbers handled by SMS)
+    if (rawMsg && rawContact && !/^\+?[0-9\s\-()]{5,17}$/.test(rawContact)) {
+      return { type: 'whatsapp_contact', action: 'message', contact: rawContact, message: rawMsg, silentAction: true };
+    }
+  }
+
   // WhatsApp MESSAGE by contact name (check BEFORE general SMS intent)
   for (const pattern of WHATSAPP_MSG_PATTERNS) {
     const m = text.match(pattern);

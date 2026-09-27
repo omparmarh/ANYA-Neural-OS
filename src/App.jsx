@@ -10,6 +10,7 @@ import CameraModal from './components/CameraModal';
 import CallScreenerWidget from './components/CallScreenerWidget';
 import AuthModal from './components/AuthModal';
 import SplashLoader from './components/SplashLoader';
+import StartupBootScreen from './components/StartupBootScreen';
 import {
   getChats, createChat, updateChat, deleteChat,
   getMessages, addMessage, updateMessage, deleteMessage,
@@ -1076,7 +1077,7 @@ export default function App() {
   const activeUser = currentUser || getActiveUser() || { name: 'Boss', role: 'Commander' };
 
   if (showSplash) {
-    return <SplashLoader onComplete={() => setShowSplash(false)} />;
+    return <StartupBootScreen onComplete={() => setShowSplash(false)} />;
   }
 
   if (isAuthLoading) {
@@ -1098,7 +1099,10 @@ export default function App() {
 
 
   return (
-    <div className="flex h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-screen overflow-hidden bg-[#05070c] text-slate-100 font-sans">
+    <div
+      className="flex h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-screen overflow-hidden text-slate-100"
+      style={{ background: 'var(--surface-0)', fontFamily: 'var(--font-sans)' }}
+    >
       {/* Auth Modal */}
       {showAuthModal && (
         <AuthModal
@@ -1107,45 +1111,43 @@ export default function App() {
         />
       )}
 
-      {/* Main App (only show when authenticated) */}
-      {isAuthenticated && (
-        <>
-          {/* Sidebar Navigation */}
-          <Sidebar
-            isOpen={isSidebarOpen}
-            onClose={() => setIsSidebarOpen(false)}
-            threads={threads}
-            activeThreadId={activeThreadId}
-            onSelectThread={(id) => {
-              setActiveThreadId(id);
-              loadChatMessages(id);
-            }}
-            onNewThread={handleNewThread}
-            onDeleteThread={handleDeleteThread}
-            onOpenPrivacy={() => setIsPrivacyOpen(true)}
-            onQuickAction={(toolId) => {
-              setShowWidgetsTray(true);
-            }}
-            tokenUsage={tokenUsage}
-            currentUser={activeUser}
-            onLogout={handleLogout}
-          />
+      {/* Main Workspace Area */}
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        threads={threads}
+        activeThreadId={activeThreadId}
+        onSelectThread={(id) => {
+          setActiveThreadId(id);
+          loadChatMessages(id);
+        }}
+        onNewThread={handleNewThread}
+        onDeleteThread={handleDeleteThread}
+        onOpenPrivacy={() => setIsPrivacyOpen(true)}
+        onQuickAction={(toolId) => {
+          setShowWidgetsTray(true);
+        }}
+        tokenUsage={tokenUsage}
+        currentUser={activeUser}
+        onLogout={handleLogout}
+      />
 
-          {/* Main Workspace Area */}
-          <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-            {/* Top Header */}
-            <Header
-              settings={settings}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-              onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-              isListening={isListening}
-              isSpeaking={isSpeaking}
-              onEmergencyStop={stopSpeaking}
-              activeTimersCount={timers.filter(t => !t.isFinished).length}
-              onToggleWidgetsTray={() => setShowWidgetsTray(!showWidgetsTray)}
-              showWidgetsTray={showWidgetsTray}
-              currentUser={activeUser}
-            />
+      {/* Main Workspace Area */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Top Header */}
+        <Header
+          settings={settings}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          onNewThread={handleNewThread}
+          isListening={isListening}
+          isSpeaking={isSpeaking}
+          onEmergencyStop={stopSpeaking}
+          activeTimersCount={timers.filter(t => !t.isFinished).length}
+          onToggleWidgetsTray={() => setShowWidgetsTray(!showWidgetsTray)}
+          showWidgetsTray={showWidgetsTray}
+          currentUser={activeUser}
+        />
 
             {/* Chat Message Stream */}
             <ChatArea
@@ -1231,137 +1233,6 @@ export default function App() {
               assistantName={settings.assistantName || 'Aanya'}
             />
           )}
-        </>
-      )}
-
-      {/* Guest Mode App (show when not authenticated but not showing auth modal) */}
-      {!isAuthenticated && !showAuthModal && (
-        <>
-          {/* Sidebar Navigation */}
-          <Sidebar
-            isOpen={isSidebarOpen}
-            onClose={() => setIsSidebarOpen(false)}
-            threads={threads}
-            activeThreadId={activeThreadId}
-            onSelectThread={(id) => {
-              setActiveThreadId(id);
-              // Load messages for guest mode (from localStorage within chats)
-              const chat = threads.find(t => t.id === id);
-              // Messages are already stored in the chat object for guest mode
-            }}
-            onNewThread={handleNewThread}
-            onDeleteThread={handleDeleteThread}
-            onOpenPrivacy={() => setIsPrivacyOpen(true)}
-            onQuickAction={(toolId) => {
-              setShowWidgetsTray(true);
-            }}
-            tokenUsage={tokenUsage}
-            currentUser={getActiveUser() || { name: 'Boss', role: 'Commander' }}
-            onLogout={handleLogout}
-          />
-
-          {/* Main Workspace Area */}
-          <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-            {/* Top Header */}
-            <Header
-              settings={settings}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-              onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-              isListening={isListening}
-              isSpeaking={isSpeaking}
-              onEmergencyStop={stopSpeaking}
-              activeTimersCount={timers.filter(t => !t.isFinished).length}
-              onToggleWidgetsTray={() => setShowWidgetsTray(!showWidgetsTray)}
-              showWidgetsTray={showWidgetsTray}
-              currentUser={getActiveUser() || { name: 'Boss', role: 'Commander' }}
-            />
-
-            {/* Chat Message Stream */}
-            <ChatArea
-              messages={currentThread.messages || []}
-              isThinking={isThinking}
-              settings={settings}
-              onSpeakMessage={(text) => speakOnDevice(text, settings)}
-              onToggleTimerPause={handleToggleTimerPause}
-              onAddMinuteToTimer={handleAddMinuteToTimer}
-              onCancelTimer={handleCancelTimer}
-              onToggleAlarmActive={handleToggleAlarmActive}
-              onDeleteAlarm={handleDeleteAlarm}
-              onUpdateNote={handleUpdateNote}
-              onDeleteNote={handleDeleteNote}
-              onToggleTaskDone={handleToggleTaskDone}
-              onDeleteTask={handleDeleteTask}
-            />
-
-            {/* Bottom Input Controls */}
-            <InputBar
-              onSendMessage={handleSendMessage}
-              onOpenLiveCamera={() => setIsCameraOpen(true)}
-              isListening={isListening}
-              onToggleSpeechRecognition={handleToggleSpeech}
-              interimTranscript={interimTranscript}
-              disabled={isThinking}
-              assistantName={settings.assistantName || 'Aanya'}
-            />
-
-            {/* Active Widgets Side/Bottom Panel */}
-            <ActiveWidgetsBar
-              isOpen={showWidgetsTray}
-              onClose={() => setShowWidgetsTray(false)}
-              timers={timers}
-              alarms={alarms}
-              notes={notes}
-              tasks={tasks}
-              onToggleTimerPause={handleToggleTimerPause}
-              onAddMinuteToTimer={handleAddMinuteToTimer}
-              onCancelTimer={handleCancelTimer}
-              onToggleAlarmActive={handleToggleAlarmActive}
-              onDeleteAlarm={handleDeleteAlarm}
-              onUpdateNote={handleUpdateNote}
-              onDeleteNote={handleDeleteNote}
-              onToggleTaskDone={handleToggleTaskDone}
-              onDeleteTask={handleDeleteTask}
-              onAddNewTask={handleAddNewTask}
-              onAddNewNote={handleAddNewNote}
-            />
-          </div>
-
-          {/* Modals */}
-          <SettingsModal
-            isOpen={isSettingsOpen}
-            onClose={() => setIsSettingsOpen(false)}
-            settings={settings}
-            onSaveSettings={(newSettings) => {
-              setSettings(newSettings);
-              saveSettings(newSettings);
-            }}
-          />
-
-          <PrivacyPolicyModal
-            isOpen={isPrivacyOpen}
-            onClose={() => setIsPrivacyOpen(false)}
-          />
-
-          <CameraModal
-            isOpen={isCameraOpen}
-            onClose={() => setIsCameraOpen(false)}
-            assistantName={getActiveUser()?.name || 'Aanya'}
-            onCapture={(imgData, livePrompt) => {
-              const prompt = livePrompt || "Analyze this live camera view and describe what you observe or execute requested actions.";
-              handleSendMessage(prompt, imgData);
-            }}
-          />
-
-          {/* Real-time AI Call Screener HUD Modal */}
-          {activeTelephonyCalls.length > 0 && (
-            <CallScreenerWidget
-              callSession={activeTelephonyCalls[0]}
-              onClose={() => setActiveTelephonyCalls([])}
-              assistantName={getActiveUser()?.name || 'Aanya'}
-            />
-          )}
-        </>
-      )}
     </div>
   );
 }
