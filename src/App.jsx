@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
@@ -11,7 +11,9 @@ import CallScreenerWidget from './components/CallScreenerWidget';
 import AuthModal from './components/AuthModal';
 import SplashLoader from './components/SplashLoader';
 import StartupBootScreen from './components/StartupBootScreen';
-import { Loader2 } from 'lucide-react';
+import LiveOverlayAvatar from './components/LiveOverlayAvatar';
+import LiveOverlayPanel from './components/LiveOverlayPanel';
+import { Loader2, Radio } from 'lucide-react';
 import {
   getChats, createChat, updateChat, deleteChat,
   getMessages, addMessage, updateMessage, deleteMessage,
@@ -57,6 +59,12 @@ export default function App() {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [showWidgetsTray, setShowWidgetsTray] = useState(false);
+
+  // ── Live Overlay State ────────────────────────────────────────────────────
+  const [isLiveModeActive, setIsLiveModeActive] = useState(false);
+  const [isOverlayPanelOpen, setIsOverlayPanelOpen] = useState(false);
+  const [overlayAvatarState, setOverlayAvatarState] = useState('idle');
+  const [overlayStatusText, setOverlayStatusText] = useState('');
 
   // Active Widgets Data
   const [activeTelephonyCalls, setActiveTelephonyCalls] = useState([]);
@@ -1194,6 +1202,54 @@ export default function App() {
               assistantName={settings.assistantName || 'Aanya'}
             />
 
+            {/* ── LIVE MODE TOGGLE BUTTON ── */}
+            <button
+              id="anya-live-mode-btn"
+              onClick={() => {
+                if (isLiveModeActive) {
+                  setIsLiveModeActive(false);
+                  setIsOverlayPanelOpen(false);
+                  setOverlayAvatarState('idle');
+                  setOverlayStatusText('');
+                } else {
+                  setIsLiveModeActive(true);
+                  setOverlayAvatarState('idle');
+                  try { if (navigator.vibrate) navigator.vibrate([40, 30, 40]); } catch {}
+                }
+              }}
+              title={isLiveModeActive ? 'Deactivate Live Mode' : 'Activate Live Mode — float over any app'}
+              className={isLiveModeActive ? 'live-mode-active-btn' : ''}
+              style={{
+                position: 'fixed',
+                bottom: 100,
+                left: 16,
+                zIndex: 9990,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 14px',
+                borderRadius: 20,
+                border: `1.5px solid ${isLiveModeActive ? 'rgba(239,68,68,0.7)' : 'rgba(0,220,255,0.3)'}`,
+                background: isLiveModeActive
+                  ? 'linear-gradient(135deg, rgba(239,68,68,0.2) 0%, rgba(185,28,28,0.15) 100%)'
+                  : 'linear-gradient(135deg, rgba(0,220,255,0.1) 0%, rgba(0,30,50,0.8) 100%)',
+                color: isLiveModeActive ? '#fca5a5' : '#67e8f9',
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                cursor: 'pointer',
+                backdropFilter: 'blur(16px)',
+                boxShadow: isLiveModeActive
+                  ? '0 4px 20px rgba(239,68,68,0.25)'
+                  : '0 4px 16px rgba(0,0,0,0.4)',
+                transition: 'all 0.3s ease',
+                textTransform: 'uppercase',
+              }}
+            >
+              <Radio size={12} style={{ animation: isLiveModeActive ? 'anya-avatar-idle-pulse 1.5s ease-in-out infinite' : 'none' }} />
+              {isLiveModeActive ? 'LIVE ON' : 'LIVE MODE'}
+            </button>
+
             {/* Active Widgets Side/Bottom Panel */}
             <ActiveWidgetsBar
               isOpen={showWidgetsTray}
@@ -1250,6 +1306,52 @@ export default function App() {
               assistantName={settings.assistantName || 'Aanya'}
             />
           )}
+
+          {/* ── LIVE OVERLAY SYSTEM ─────────────────────────────────────── */}
+          {/* Floating draggable avatar — sits on top of all app UI */}
+          <LiveOverlayAvatar
+            isActive={isLiveModeActive}
+            avatarState={overlayAvatarState}
+            statusText={overlayStatusText}
+            assistantName={settings.assistantName || 'Aanya'}
+            onOpen={() => setIsOverlayPanelOpen(true)}
+            onClose={() => {
+              setIsLiveModeActive(false);
+              setIsOverlayPanelOpen(false);
+              setOverlayAvatarState('idle');
+              setOverlayStatusText('');
+            }}
+          />
+
+          {/* Expanded voice + AI answer panel */}
+          <LiveOverlayPanel
+            isOpen={isLiveModeActive && isOverlayPanelOpen}
+            onClose={() => setIsOverlayPanelOpen(false)}
+            onAvatarState={setOverlayAvatarState}
+            onStatusText={setOverlayStatusText}
+            settings={settings}
+            onSendToChat={(userText, aiReply) => {
+              // Optionally mirror the overlay exchange into the main chat thread
+              const userMsg = {
+                id: `msg_${Date.now()}`,
+                role: 'user',
+                content: `[Live Mode] ${userText}`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              };
+              const aiMsg = {
+                id: `msg_${Date.now() + 1}`,
+                role: 'assistant',
+                content: aiReply,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              };
+              setThreads(prev => prev.map(t => {
+                if (t.id === activeThreadId) {
+                  return { ...t, messages: [...(t.messages || []), userMsg, aiMsg] };
+                }
+                return t;
+              }));
+            }}
+          />
     </div>
   );
 }
