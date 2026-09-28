@@ -452,6 +452,11 @@ export default function App() {
   const currentThread = threads.find(t => t.id === activeThreadId) || { messages: [] };
 
   // Create New Thread
+  const handleModeChange = (mode) => {
+    setSettings(prev => ({ ...prev, thinkingMode: mode }));
+    saveSettings({ ...settings, thinkingMode: mode });
+  };
+
   const handleNewThread = async () => {
     if (isAuthenticated) {
       const newChat = await createChat({ title: 'New Session' });
@@ -1156,6 +1161,8 @@ export default function App() {
           activeTimersCount={timers.filter(t => !t.isFinished).length}
           onToggleWidgetsTray={() => setShowWidgetsTray(!showWidgetsTray)}
           showWidgetsTray={showWidgetsTray}
+          thinkingMode={settings.thinkingMode}
+          onModeChange={handleModeChange}
           currentUser={activeUser}
         />
 

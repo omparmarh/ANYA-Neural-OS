@@ -14,6 +14,33 @@ const isMacOS = typeof window !== 'undefined' && window.electronAPI?.platform ==
 const hasNativeTraffic = isElectron && isMacOS;
 
 // ─── Custom traffic-light dots (Windows / Linux Electron) ─────────────────────
+
+// ─── Thinking Mode Switcher ──────────────────────────────────────────────────
+function ThinkingModeSwitcher({ mode, onModeChange }) {
+  const modes = [
+    { id: 'fast', label: '⚡ Fast', desc: 'Instant response, no tools' },
+    { id: 'balanced', label: '● Balanced', desc: 'Balanced reasoning' },
+    { id: 'deep', label: '◆ Deep', desc: 'Maximum intelligence, full tool access' }
+  ];
+
+  return (
+    <div className="flex bg-slate-900/50 rounded-xl p-0.5 border border-white/10 mx-2 app-no-drag">
+      {modes.map(m => (
+        <button
+          key={m.id}
+          onClick={() => onModeChange(m.id)}
+          className={`px-3 py-1 text-[10px] font-mono font-bold rounded-lg transition-all ${
+            mode === m.id ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-400 hover:text-slate-200'
+          }`}
+          title={m.desc}
+        >
+          {m.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function WinControls() {
   return (
     <div className="flex items-center gap-1.5 app-no-drag">
@@ -53,7 +80,9 @@ export default function Header({
   onEmergencyStop,
   activeTimersCount = 0,
   onToggleWidgetsTray,
-  showWidgetsTray
+  showWidgetsTray,
+  thinkingMode = "balanced",
+  onModeChange
 }) {
   const [battery, setBattery] = useState({ level: 100, charging: false });
   const [torchActive, setTorchActive] = useState(false);
@@ -248,6 +277,8 @@ export default function Header({
             {battery.level}%
           </span>
         </div>
+
+        <ThinkingModeSwitcher mode={thinkingMode} onModeChange={onModeChange} />
 
         {/* Settings */}
         <button

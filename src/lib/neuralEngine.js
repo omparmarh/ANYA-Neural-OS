@@ -47,6 +47,7 @@ export const DEFAULT_SETTINGS = {
   userName: 'Boss',
   geminiModel: 'gemini-3.8-flash',
   groqModel: 'qwen/qwen3.8-27b',
+  thinkingMode: 'balanced',
 };
 
 // Key Manager with cooldown timestamps
@@ -154,7 +155,7 @@ export function clearTokenUsage() {
 }
 
 // System Prompt for Aanya (ANYA)
-function buildSystemPrompt(userName = 'Boss', persona = 'sharp', assistantName = 'Aanya') {
+function buildSystemPrompt(userName = 'Boss', persona = 'sharp', assistantName = 'Aanya', mode = 'balanced') {
   const name = (assistantName && assistantName.trim()) ? assistantName.trim() : 'Aanya';
   const nameUpper = name.toUpperCase();
 
@@ -167,7 +168,29 @@ function buildSystemPrompt(userName = 'Boss', persona = 'sharp', assistantName =
 
   const basePersona = personas[persona] || personas.sharp;
 
-  return `${basePersona}
+  // ── MODE-SPECIFIC BEHAVIOR ────────────────────────────────────────────────
+  // fast  = ultra-low latency, no tool calls, Groq direct.
+  // deep  = maximum reasoning, full tool access, Gemini direct.
+  // balanced = default prompt below, FreeLLMAPI gateway first.
+  if (mode === 'fast') {
+    return `${basePersona}
+
+CURRENT TIME: ${new Date().toLocaleString()}
+
+FAST MODE ACTIVE — MAXIMUM LATENCY, ZERO TOOL CALLS.
+You are in Fast mode. Answer the user's question directly and concisely in one or two sentences. Do NOT emit tool blocks, do NOT search the web, do NOT open apps. If the user asks for an action that requires a tool, briefly explain what you would do and ask them to switch to Balanced or Deep mode. Be warm and helpful, but keep it short.`;
+  }
+
+  if (mode === 'deep') {
+    return `${basePersona}
+
+CURRENT TIME: ${new Date().toLocaleString()}
+
+DEEP MODE ACTIVE — MAXIMUM INTELLIGENCE, FULL TOOL ACCESS.
+You are in Deep mode. Think carefully and thoroughly before answering. Use the full tool set below whenever it helps. For coding tasks, analyze the problem deeply, consider edge cases, and produce complete, production-ready code. For complex multi-step requests, break the work into a clear sequence of tool calls and explain each step. Do not take shortcuts — depth and correctness come first.`;
+  }
+
+    return `${basePersona}
 
 CORE IDENTITY & SELF-AWARENESS:
 - IDENTITY: Your name is ${name} (spelled "${name}", also referred to as ${nameUpper}). You are a female AI assistant and personal operating intelligence.
@@ -239,7 +262,7 @@ If the user's request is purely conversational, answer directly with brilliance 
 }
 
 // Direct Provider Call: Google Gemini Flash
-async function callGemini(messages, apiKey, userSettings, attachment = null) {
+async function callGemini(messages, apiKey, userSettings, attachment = null, mode = 'balanced') {
   let requestedModel = userSettings.geminiModel || 'gemini-3.8-flash';
   if (!requestedModel || requestedModel.includes('gemini-2.') || requestedModel.includes('gemini-1.') || requestedModel.includes('gemini-3.6')) {
     requestedModel = 'gemini-3.8-flash';
@@ -254,7 +277,7 @@ async function callGemini(messages, apiKey, userSettings, attachment = null) {
 
       const contents = [];
       const systemInstruction = {
-        parts: [{ text: buildSystemPrompt(userSettings.userName, userSettings.persona, userSettings.assistantName) }]
+        parts: [{ text: buildSystemPrompt(userSettings.userName, userSettings.persona, userSettings.assistantName, mode) }]
       };
 
       for (let i = 0; i < messages.length; i++) {
@@ -317,7 +340,7 @@ async function callGemini(messages, apiKey, userSettings, attachment = null) {
 }
 
 // Direct Provider Call: Groq
-async function callGroq(messages, apiKey, userSettings) {
+async function callGroq(messages, apiKey, userSettings, mode = 'balanced') {
   const modelCandidates = Array.from(new Set([
     userSettings.groqModel || 'qwen/qwen3.8-27b',
     'qwen/qwen3.8-27b',
@@ -327,7 +350,7 @@ async function callGroq(messages, apiKey, userSettings) {
   const url = 'https://api.groq.com/openai/v1/chat/completions';
 
   const groqMessages = [
-    { role: 'system', content: buildSystemPrompt(userSettings.userName, userSettings.persona, userSettings.assistantName) },
+    { role: 'system', content: buildSystemPrompt(userSettings.userName, userSettings.persona, userSettings.assistantName, mode) },
     ...messages.map(m => ({
       role: m.role === 'assistant' || m.role === 'anya' ? 'assistant' : 'user',
       content: m.content
@@ -379,11 +402,11 @@ async function callGroq(messages, apiKey, userSettings) {
 }
 
 // Direct Provider Call: OpenRouter
-async function callOpenRouter(messages, apiKey, userSettings) {
+async function callOpenRouter(messages, apiKey, userSettings, mode = 'balanced') {
   const url = 'https://openrouter.ai/api/v1/chat/completions';
 
   const openRouterMessages = [
-    { role: 'system', content: buildSystemPrompt(userSettings.userName, userSettings.persona, userSettings.assistantName) },
+    { role: 'system', content: buildSystemPrompt(userSettings.userName, userSettings.persona, userSettings.assistantName, mode) },
     ...messages.map(m => ({
       role: m.role === 'assistant' || m.role === 'anya' ? 'assistant' : 'user',
       content: m.content || ' '
@@ -434,12 +457,12 @@ async function callOpenRouter(messages, apiKey, userSettings) {
 }
 
 // Direct Provider Call: FreeLLMAPI Unified Gateway (7.4B Free Token Pool across 34 providers)
-export async function callFreeLLMAPI(messages, userSettings, attachment = null) {
+export async function callFreeLLMAPI(messages, userSettings, attachment = null, mode = 'balanced') {
   const baseUrl = userSettings.freellmapiUrl || 'http://localhost:3001/v1';
   const apiKey = userSettings.freellmapiKey || 'freellmapi-3b01700d45e8abec3101dd07b2f4ce0fca08a4eed30f29e0';
   const model = userSettings.freellmapiModel || 'auto';
 
-  const systemPrompt = buildSystemPrompt(userSettings.userName, userSettings.persona, userSettings.assistantName);
+  const systemPrompt = buildSystemPrompt(userSettings.userName, userSettings.persona, userSettings.assistantName, mode);
 
   const formattedMessages = [
     { role: 'system', content: systemPrompt },
@@ -511,11 +534,28 @@ export async function callFreeLLMAPI(messages, userSettings, attachment = null) 
 
 // Autonomous Multi-Tier Thinking Engine
 export async function thinkOnDevice(messages, userSettings, attachment = null) {
+  const mode = userSettings.thinkingMode || 'balanced';
+  const withMode = (settings) => ({ ...settings, thinkingMode: mode });
+
+  // ── MODE ROUTING ─────────────────────────────────────────────────────────
+  // fast   = Groq direct (fastest), no gateway, no tools.
+  // deep   = Gemini direct (strongest), no gateway, full tools.
+  // balanced = FreeLLMAPI gateway first, then direct providers (default).
+  if (mode === 'fast') {
+    console.log('[ANYA] Fast mode — routing directly to Groq (gateway bypassed)');
+    return routeDirect(messages, withMode(userSettings), ['groq', 'gemini', 'openrouter'], attachment, 'fast');
+  }
+
+  if (mode === 'deep') {
+    console.log('[ANYA] Deep mode — routing directly to Gemini (gateway bypassed)');
+    return routeDirect(messages, withMode(userSettings), ['gemini', 'groq', 'openrouter'], attachment, 'deep');
+  }
+
   // ── Tier 0: FreeLLMAPI Unified Gateway (7.4B tokens, 34 providers, auto failover) ──
   if (userSettings.useFreeLLMAPI !== false) {
     try {
       console.log('[ANYA] Routing inference through FreeLLMAPI Unified Gateway...');
-      return await callFreeLLMAPI(messages, userSettings, attachment);
+      return await callFreeLLMAPI(messages, withMode(userSettings), attachment);
     } catch (gatewayErr) {
       console.warn('[ANYA] FreeLLMAPI Gateway unavailable/failed, falling back to direct providers:', gatewayErr.message);
     }
@@ -531,6 +571,11 @@ export async function thinkOnDevice(messages, userSettings, attachment = null) {
     providerOrder.push('gemini', 'groq', 'openrouter');
   }
 
+  return routeDirect(messages, withMode(userSettings), providerOrder, attachment, mode);
+}
+
+// Shared direct-provider router used by all modes.
+async function routeDirect(messages, userSettings, providerOrder, attachment, mode) {
   let lastError = null;
 
   for (const provider of providerOrder) {
@@ -546,14 +591,14 @@ export async function thinkOnDevice(messages, userSettings, attachment = null) {
       }
 
       try {
-        console.log(`[ANYA] Dispatching request to ${provider.toUpperCase()}`);
+        console.log(`[ANYA] Dispatching request to ${provider.toUpperCase()} (${mode} mode)`);
         if (provider === 'gemini') {
-          return await callGemini(messages, key, userSettings, attachment);
+          return await callGemini(messages, key, userSettings, attachment, userSettings.thinkingMode || 'balanced');
         } else if (provider === 'groq') {
           if (attachment) continue;
-          return await callGroq(messages, key, userSettings);
+          return await callGroq(messages, key, userSettings, userSettings.thinkingMode || 'balanced');
         } else if (provider === 'openrouter') {
-          return await callOpenRouter(messages, key, userSettings);
+          return await callOpenRouter(messages, key, userSettings, userSettings.thinkingMode || 'balanced');
         }
       } catch (err) {
         console.warn(`[ANYA] Key attempt failed for ${provider}:`, err.message);
