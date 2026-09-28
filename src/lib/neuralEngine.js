@@ -664,33 +664,54 @@ function fallbackSpeech(text) {
     return;
   }
 
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 1.05;
-  utterance.pitch = 1.0;
+  const synth = window.speechSynthesis;
+  synth.cancel();
 
-  // Try to pick a crisp English voice
-  const voices = window.speechSynthesis.getVoices();
-  const preferredVoice = voices.find(v =>
+  // Voices may load asynchronously; wait for them before speaking, otherwise
+  // the utterance can be queued before any voice is available and stay silent.
+  const pickVoice = () => synth.getVoices().find(v =>
     v.name.includes('Samantha') ||
     v.name.includes('Daniel') ||
     v.name.includes('Natural') ||
     v.name.includes('Google UK English Female') ||
     (v.lang.startsWith('en') && !v.localService)
-  ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+  ) || synth.getVoices().find(v => v.lang.startsWith('en')) || synth.getVoices()[0];
 
-  if (preferredVoice) {
-    utterance.voice = preferredVoice;
+  let voice = pickVoice();
+  if (!voice && synth.onvoiceschanged === null) {
+    // Wait once for the voice list to populate, then speak.
+    const onVoicesChanged = () => {
+      synth.onvoiceschanged = null;
+      voice = pickVoice();
+      speakUtterance();
+    };
+    synth.onvoiceschanged = onVoicesChanged;
+    // Safety timeout in case the event never fires
+    setTimeout(() => {
+      if (synth.onvoiceschanged === onVoicesChanged) synth.onvoiceschanged = null;
+      voice = pickVoice();
+      speakUtterance();
+    }, 2000);
+    return;
   }
 
-  utterance.onend = () => {
-    window.dispatchEvent(new CustomEvent('anya-speech-stopped'));
-  };
-  utterance.onerror = () => {
-    window.dispatchEvent(new CustomEvent('anya-speech-stopped'));
-  };
+  speakUtterance();
 
-  window.speechSynthesis.speak(utterance);
+  function speakUtterance() {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+    if (voice) utterance.voice = voice;
+
+    utterance.onend = () => {
+      window.dispatchEvent(new CustomEvent('anya-speech-stopped'));
+    };
+    utterance.onerror = () => {
+      window.dispatchEvent(new CustomEvent('anya-speech-stopped'));
+    };
+
+    synth.speak(utterance);
+  }
 }
 
 // Hardware & Device Sensor Helpers

@@ -114,6 +114,43 @@ export async function mediaControl(action, appKey = 'ytmusic') {
 }
 
 /**
+ * Play a specific song/track.
+ * 1. Resolve the search URL to an actual watch URL (YouTube Music search
+ *    pages never auto-play, so we must jump to the first result's watch URL).
+ * 2. Open/reuse the app tab at that watch URL so playback starts immediately.
+ */
+export async function playSong(appKey, query) {
+  const tabPattern = APP_TAB_PATTERNS[appKey] || appKey;
+  const searchUrls = {
+    'ytmusic':       `https://music.youtube.com/search?q=${encodeURIComponent(query)}`,
+    'youtube-music': `https://music.youtube.com/search?q=${encodeURIComponent(query)}`,
+    'youtube':       `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
+    'spotify':       `https://open.spotify.com/search/${encodeURIComponent(query)}`,
+  };
+  const searchUrl = searchUrls[appKey] || `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+
+  if (isElectron) {
+    // Resolve the first video id from the search page, then navigate the
+    // existing tab to the watch URL so playback starts right away.
+    let playUrl = searchUrl;
+    try {
+      const resolved = await window.electronAPI.resolvePlayUrl(searchUrl);
+      if (resolved?.success && resolved.playUrl) {
+        playUrl = resolved.playUrl;
+      }
+    } catch (e) {
+      console.warn('[ANYA] resolvePlayUrl failed, using search URL:', e.message);
+    }
+
+    const result = await window.electronAPI.openInChrome(playUrl, tabPattern);
+    return { success: true, action: 'play', app: appKey, query, url: playUrl, reused: result !== 'opened_new', resolved: !!playUrl };
+  }
+
+  // Browser fallback: open the search URL in a named window slot
+  return openApp(appKey, searchUrl);
+}
+
+/**
  * Search within an already-open app tab, or open the search URL.
  * e.g. searchInApp('ytmusic', 'Blinding Lights') navigates the
  * YouTube Music tab to the search results page instead of opening a new tab.

@@ -24,6 +24,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   mediaControl: (action, tabUrlPattern) =>
     ipcRenderer.invoke('anya:media-control', { action, tabUrlPattern }),
 
+  /**
+   * Resolve a "play <song>" search URL into an actual watch URL that will
+   * start playing immediately (YouTube Music search pages never auto-play).
+   */
+  resolvePlayUrl: (searchUrl) =>
+    ipcRenderer.invoke('anya:resolve-play-url', { searchUrl }),
+
   /** FreeLLMAPI status */
   getFreeLLMAPIStatus: () => ipcRenderer.invoke('anya:freellmapi-status'),
 

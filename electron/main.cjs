@@ -282,8 +282,25 @@ async function getChromeTabs() {
   }).filter(t => t.url);
 }
 
+// ─── Dev Server Probe ────────────────────────────────────────────────────────
+/**
+ * Probe a URL with a short timeout before loading it.
+ * Loading an unreachable URL in Electron triggers a hard renderer SIGSEGV
+ * on macOS (shared_memory_switch rendezvous failure), so we never loadURL
+ * a server we haven't confirmed is answering.
+ */
+function probeUrl(url, timeoutMs = 600) {
+  return new Promise((resolve) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => { controller.abort(); resolve(false); }, timeoutMs);
+    fetch(url, { signal: controller.signal, headers: { 'Cache-Control': 'no-store' } })
+      .then((res) => { clearTimeout(timer); resolve(res.ok); })
+      .catch(() => { clearTimeout(timer); resolve(false); });
+  });
+}
+
 // ─── Window Creation ──────────────────────────────────────────────────────────
-function createWindow() {
+async function createWindow() {
   const isMac = process.platform === 'darwin';
 
   mainWindow = new BrowserWindow({
@@ -320,15 +337,23 @@ function createWindow() {
   if (app.isPackaged) {
     mainWindow.loadFile(distPath);
   } else {
-    // Try connecting to Vite dev server first (ports 5173 / 5174), fallback to bundled dist
-    mainWindow.loadURL('http://localhost:5173').catch(() => {
-      mainWindow.loadURL('http://localhost:5174').catch(() => {
-        console.warn('[ANYA] Dev servers not reachable, loading bundled dist...');
-        if (fs.existsSync(distPath)) {
-          mainWindow.loadFile(distPath);
-        }
-      });
-    });
+    // Probe dev servers BEFORE attempting to load. Loading an unreachable
+    // URL crashes the Electron renderer on macOS, so never loadURL a dead server.
+    const devUrl = await probeUrl('http://localhost:5173')
+      ? 'http://localhost:5173'
+      : await probeUrl('http://localhost:5174')
+        ? 'http://localhost:5174'
+        : null;
+
+    if (devUrl) {
+      console.log('[ANYA] Loading Vite dev server:', devUrl);
+      mainWindow.loadURL(devUrl);
+    } else {
+      console.warn('[ANYA] Dev servers not reachable, loading bundled dist...');
+      if (fs.existsSync(distPath)) {
+        mainWindow.loadFile(distPath);
+      }
+    }
   }
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
@@ -379,6 +404,53 @@ ipcMain.handle('anya:get-chrome-tabs', async () => {
 // Media control in existing tab
 ipcMain.handle('anya:media-control', async (event, { action, tabUrlPattern }) => {
   return chromeTabAction(action, tabUrlPattern || 'youtube');
+});
+
+// ─── Resolve a "play" URL to an actual watch URL ──────────────────────────────
+/**
+ * "Play <song>" must actually start a track, not dump a search-results page.
+ * YouTube Music search pages never auto-play, so we load the search URL in a
+ * hidden window, extract the first video id, and return the watch URL.
+ * Falls back to the original URL if no video id can be found.
+ */
+ipcMain.handle('anya:resolve-play-url', async (event, { searchUrl }) => {
+  if (!searchUrl) return { success: false, error: 'No search URL provided' };
+
+  let hiddenWin = null;
+  try {
+    hiddenWin = new BrowserWindow({ show: false, webPreferences: { javascript: true } });
+    await hiddenWin.loadURL(searchUrl);
+    // Give the page time to render its search results
+    await new Promise((r) => setTimeout(r, 4500));
+
+    const id = await hiddenWin.webContents.executeJavaScript(`
+      (function(){
+        let ids = [];
+        document.querySelectorAll('a[href*="watch?v="]').forEach(a => {
+          const m = a.href.match(/[?&]v=([A-Za-z0-9_-]{11})/);
+          if (m && ids.indexOf(m[1]) === -1) ids.push(m[1]);
+        });
+        document.querySelectorAll('[data-video-id]').forEach(a => {
+          const id = a.getAttribute('data-video-id');
+          if (id && id.length === 11 && ids.indexOf(id) === -1) ids.push(id);
+        });
+        return ids[0] || null;
+      })()
+    `);
+
+    if (id) {
+      const playUrl = `https://music.youtube.com/watch?v=${id}`;
+      return { success: true, playUrl, videoId: id, source: searchUrl };
+    }
+    return { success: false, error: 'No video id found', source: searchUrl, url: searchUrl };
+  } catch (err) {
+    console.warn('[ANYA] resolve-play-url error:', err.message);
+    return { success: false, error: err.message, source: searchUrl, url: searchUrl };
+  } finally {
+    if (hiddenWin) {
+      try { hiddenWin.destroy(); } catch {}
+    }
+  }
 });
 
 // FreeLLMAPI Gateway Status

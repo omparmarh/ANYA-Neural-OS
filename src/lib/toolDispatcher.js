@@ -4,7 +4,7 @@
  */
 
 import { triggerHaptic } from './neuralEngine';
-import { openApp, searchInApp, mediaControl, isAppOpen } from './deviceBridge';
+import { openApp, searchInApp, mediaControl, playSong, isAppOpen } from './deviceBridge';
 import { marked } from 'marked';
 import pptxgen from 'pptxgenjs';
 marked.setOptions({ gfm: true, breaks: true });
@@ -484,9 +484,11 @@ export async function executeMediaControl(action = 'play', app = 'ytmusic', quer
 
   try {
     if (query) {
-      // User specified a song or search query: search in existing tab or open search URL
-      const res = await searchInApp(appKey, query);
-      return { success: true, action: 'search_and_play', app: appKey, query, ...res };
+      // User specified a song or search query.
+      // "Play <song>" must actually START the track, not just show search results.
+      // playSong resolves the first video id and jumps the tab to the watch URL.
+      const res = await playSong(appKey, query);
+      return { success: true, action: 'play', app: appKey, query, ...res };
     } else {
       // Just play/pause/next/prev in current media tab
       const res = await mediaControl(action, appKey);

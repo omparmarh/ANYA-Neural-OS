@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Play, Pause, SkipForward, ExternalLink, Radio, Disc } from 'lucide-react';
 import { executeMediaControl } from '../lib/toolDispatcher';
+import { playSong } from '../lib/deviceBridge';
 
 export default function MediaControlWidget({ action = 'play', app = 'ytmusic', query = '', url = '' }) {
   const [isPlaying, setIsPlaying] = useState(action !== 'pause');
@@ -10,13 +11,18 @@ export default function MediaControlWidget({ action = 'play', app = 'ytmusic', q
     ? 'YouTube'
     : (app.toLowerCase().includes('spotify') ? 'Spotify' : 'YouTube Music');
 
-  // Auto-open the media tab on mount so the user never has to click
+  // Auto-open the media tab on mount so the user never has to click.
+  // If we were given a resolved watch URL, open it directly. Otherwise
+  // resolve the first video id for the query and open that (search pages
+  // never auto-play, so a raw search URL would just dump results).
   useEffect(() => {
+    let cancelled = false;
     if (url) {
-      try { window.open(url, '_blank', 'noopener,noreferrer'); } catch {}
+      try { if (!cancelled) window.open(url, '_blank', 'noopener,noreferrer'); } catch {}
     } else if (query) {
-      executeMediaControl('play', app, query).catch(() => {});
+      playSong(app, query).catch(() => {});
     }
+    return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTogglePlay = async () => {
@@ -37,7 +43,7 @@ export default function MediaControlWidget({ action = 'play', app = 'ytmusic', q
     if (url) {
       window.open(url, '_blank', 'noopener,noreferrer');
     } else {
-      executeMediaControl('play', app, query);
+      playSong(app, query).catch(() => {});
     }
   };
 
