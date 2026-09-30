@@ -1,0 +1,70 @@
+name: Build ANYA
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run electron:dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ANYA-mac-arm64
+          path: dist-electron/mac-arm64/ANYA.app
+          retention-days: 7
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run electron:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ANYA-win-x64
+          path: dist-electron/win-unpacked/ANYA.exe
+          retention-days: 7
+
+  release:
+    needs: [build-mac, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ANYA-mac-arm64
+          path: release/mac
+      - uses: actions/download-artifact@v4
+        with:
+          name: ANYA-win-x64
+          path: release/win
+      - name: Create DMG for macOS
+        run: |
+          cd release/mac
+          hdiutil create -volname "ANYA" -srcfolder ANYA.app -ov -format UDZO ANYA-mac-arm64.dmg
+      - name: Create ZIP for Windows
+        run: |
+          cd release/win
+          7z a ANYA-win-x64.zip ANYA.exe
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/mac/ANYA-mac-arm64.dmg
+            release/win/ANYA-win-x64.zip
+          generate_release_notes: true
