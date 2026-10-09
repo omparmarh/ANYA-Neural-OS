@@ -13,7 +13,7 @@ export default function StartupBootScreen({ onComplete }) {
     const sequence = [
       { delay: 250, phase: 1, progress: 38, text: 'LOADING NEURAL WEIGHTS & CORE MEMORY...' },
       { delay: 600, phase: 2, progress: 72, text: 'SYNCHRONIZING SECURE TELEMETRY & MULTI-MODEL MATRIX...' },
-      { delay: 1050, phase: 3, progress: 95, text: 'ANYA NEURAL OS v2.0 ONLINE // SYSTEM READY' },
+      { delay: 1050, phase: 3, progress: 95, text: 'AVNI NEURAL OS v2.0 ONLINE // SYSTEM READY' },
       { delay: 1450, phase: 4, progress: 100, text: 'WELCOME COMMANDER. ACCESS GRANTED.' },
     ];
 
@@ -81,7 +81,7 @@ export default function StartupBootScreen({ onComplete }) {
         </div>
 
         <h1 className="text-3xl sm:text-4xl font-black tracking-widest text-white drop-shadow-[0_2px_12px_rgba(0,240,255,0.4)]">
-          ANYA <span className="text-cyan-400 font-mono text-xl sm:text-2xl font-light">OS</span>
+          AVNI <span className="text-cyan-400 font-mono text-xl sm:text-2xl font-light">OS</span>
         </h1>
 
         <p className="text-xs font-mono text-slate-400 tracking-wider h-5 transition-all duration-300">

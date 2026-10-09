@@ -12,7 +12,7 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('ANYA Core Exception caught by ErrorBoundary:', error, errorInfo);
+    console.error('AVNI Core Exception caught by ErrorBoundary:', error, errorInfo);
     this.setState({ errorInfo });
   }
 
@@ -22,8 +22,8 @@ export default class ErrorBoundary extends React.Component {
 
   handleResetState = () => {
     try {
-      localStorage.removeItem('anya_local_chats');
-      localStorage.removeItem('anya_settings');
+      localStorage.removeItem('avni_local_chats');
+      localStorage.removeItem('avni_settings');
     } catch {}
     window.location.reload();
   };

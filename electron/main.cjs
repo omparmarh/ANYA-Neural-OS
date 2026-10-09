@@ -346,10 +346,10 @@ async function createWindow() {
         : null;
 
     if (devUrl) {
-      console.log('[ANYA] Loading Vite dev server:', devUrl);
+      console.log('[AVNI] Loading Vite dev server:', devUrl);
       mainWindow.loadURL(devUrl);
     } else {
-      console.warn('[ANYA] Dev servers not reachable, loading bundled dist...');
+      console.warn('[AVNI] Dev servers not reachable, loading bundled dist...');
       if (fs.existsSync(distPath)) {
         mainWindow.loadFile(distPath);
       }
@@ -357,7 +357,7 @@ async function createWindow() {
   }
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.warn('[ANYA] WebContents load failed:', errorDescription);
+    console.warn('[AVNI] WebContents load failed:', errorDescription);
     if (fs.existsSync(distPath)) {
       mainWindow.loadFile(distPath);
     }
@@ -381,28 +381,28 @@ async function createWindow() {
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
 
 // Raw AppleScript execution
-ipcMain.handle('anya:applescript', async (event, script) => {
+ipcMain.handle('avni:applescript', async (event, script) => {
   return runAppleScript(script);
 });
 
 // Browser tab action
-ipcMain.handle('anya:browser-tab', async (event, { action, urlPattern, payload }) => {
+ipcMain.handle('avni:browser-tab', async (event, { action, urlPattern, payload }) => {
   return chromeTabAction(action, urlPattern, payload);
 });
 
 // Open URL in Chrome, reuse existing tab
-ipcMain.handle('anya:open-chrome', async (event, { url, reusePattern }) => {
+ipcMain.handle('avni:open-chrome', async (event, { url, reusePattern }) => {
   const pattern = reusePattern || new URL(url).hostname;
   return chromeTabAction('open_reuse', pattern, url);
 });
 
 // Get Chrome tabs
-ipcMain.handle('anya:get-chrome-tabs', async () => {
+ipcMain.handle('avni:get-chrome-tabs', async () => {
   return getChromeTabs();
 });
 
 // Media control in existing tab
-ipcMain.handle('anya:media-control', async (event, { action, tabUrlPattern }) => {
+ipcMain.handle('avni:media-control', async (event, { action, tabUrlPattern }) => {
   return chromeTabAction(action, tabUrlPattern || 'youtube');
 });
 
@@ -413,7 +413,7 @@ ipcMain.handle('anya:media-control', async (event, { action, tabUrlPattern }) =>
  * hidden window, extract the first video id, and return the watch URL.
  * Falls back to the original URL if no video id can be found.
  */
-ipcMain.handle('anya:resolve-play-url', async (event, { searchUrl }) => {
+ipcMain.handle('avni:resolve-play-url', async (event, { searchUrl }) => {
   if (!searchUrl) return { success: false, error: 'No search URL provided' };
 
   let hiddenWin = null;
@@ -444,7 +444,7 @@ ipcMain.handle('anya:resolve-play-url', async (event, { searchUrl }) => {
     }
     return { success: false, error: 'No video id found', source: searchUrl, url: searchUrl };
   } catch (err) {
-    console.warn('[ANYA] resolve-play-url error:', err.message);
+    console.warn('[AVNI] resolve-play-url error:', err.message);
     return { success: false, error: err.message, source: searchUrl, url: searchUrl };
   } finally {
     if (hiddenWin) {
@@ -454,7 +454,7 @@ ipcMain.handle('anya:resolve-play-url', async (event, { searchUrl }) => {
 });
 
 // FreeLLMAPI Gateway Status
-ipcMain.handle('anya:freellmapi-status', async () => {
+ipcMain.handle('avni:freellmapi-status', async () => {
   try {
     const res = await fetch('http://localhost:3001/v1/models', {
       headers: { 'Authorization': `Bearer ${FREELLMAPI_UNIFIED_KEY}` },
@@ -481,23 +481,23 @@ ipcMain.handle('anya:freellmapi-status', async () => {
 });
 
 // FreeLLMAPI Start / Sync Keys
-ipcMain.handle('anya:freellmapi-start', async (event, keys) => {
+ipcMain.handle('avni:freellmapi-start', async (event, keys) => {
   startFreeLLMAPI(keys);
   return { success: true };
 });
 
 // Open FreeLLMAPI Web Dashboard
-ipcMain.handle('anya:freellmapi-open-dashboard', async () => {
+ipcMain.handle('avni:freellmapi-open-dashboard', async () => {
   shell.openExternal('http://localhost:3001');
   return { success: true };
 });
 
 // ─── Window Control IPC ───────────────────────────────────────────────────────
-ipcMain.handle('anya:window-minimize', () => {
+ipcMain.handle('avni:window-minimize', () => {
   mainWindow?.minimize();
 });
 
-ipcMain.handle('anya:window-maximize', () => {
+ipcMain.handle('avni:window-maximize', () => {
   if (!mainWindow) return;
   if (mainWindow.isMaximized()) {
     mainWindow.unmaximize();
@@ -506,13 +506,13 @@ ipcMain.handle('anya:window-maximize', () => {
   }
 });
 
-ipcMain.handle('anya:window-close', () => {
+ipcMain.handle('avni:window-close', () => {
   mainWindow?.close();
 });
 
 // ─── Native macOS App Launcher ────────────────────────────────────────────────
 // Tries `open -a "AppName"` first (native install), falls back to shell.openExternal(url)
-ipcMain.handle('anya:open-native-app', async (event, { appName, url, args = '' }) => {
+ipcMain.handle('avni:open-native-app', async (event, { appName, url, args = '' }) => {
   const isMac = process.platform === 'darwin';
   if (isMac && appName) {
     return new Promise((resolve) => {
@@ -544,10 +544,10 @@ ipcMain.handle('anya:open-native-app', async (event, { appName, url, args = '' }
 
 // ─── Autonomous PDF Generator ──────────────────────────────────────────────────
 // Renders content into a real PDF using Electron's printToPDF, saves to Desktop
-ipcMain.handle('anya:generate-pdf', async (event, { title, htmlContent, savePath, theme = 'cyberpunk' }) => {
+ipcMain.handle('avni:generate-pdf', async (event, { title, htmlContent, savePath, theme = 'cyberpunk' }) => {
   try {
     const os = require('os');
-    const safeTitle = (title || 'Aanya_Document').replace(/[^a-zA-Z0-9_\- ]/g, '_').replace(/\s+/g, '_');
+    const safeTitle = (title || 'Avni_Document').replace(/[^a-zA-Z0-9_\- ]/g, '_').replace(/\s+/g, '_');
     const outputPath = savePath || path.join(os.homedir(), 'Desktop', `${safeTitle}.pdf`);
 
     // Dynamic Style selection based on theme
@@ -601,7 +601,7 @@ ipcMain.handle('anya:generate-pdf', async (event, { title, htmlContent, savePath
         .footer { margin-top: 72px; font-size: 10pt; color: #000000; text-align: center; }
       `;
     } else {
-      // Default: dark cyberpunk (custom designed for ANYA aesthetic)
+      // Default: dark cyberpunk (custom designed for AVNI aesthetic)
       styleBlock = `
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -628,7 +628,7 @@ ipcMain.handle('anya:generate-pdf', async (event, { title, htmlContent, savePath
 </head>
 <body>
 ${htmlContent}
-<div class="footer">Generated by Aanya OS • ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+<div class="footer">Generated by Avni OS • ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
 </body>
 </html>`;
 
@@ -662,11 +662,11 @@ ${htmlContent}
 });
 
 // ─── Autonomous 16:9 Presentation / PPT (.pptx) Generator ─────────────────────
-ipcMain.handle('anya:generate-ppt', async (event, { title, slides = [], htmlContent, savePath, theme = 'cyberpunk' }) => {
+ipcMain.handle('avni:generate-ppt', async (event, { title, slides = [], htmlContent, savePath, theme = 'cyberpunk' }) => {
   try {
     const os = require('os');
     const PptxGenJS = require('pptxgenjs');
-    const safeTitle = (title || 'Aanya_Presentation').replace(/[^a-zA-Z0-9_\- ]/g, '_').replace(/\s+/g, '_');
+    const safeTitle = (title || 'Avni_Presentation').replace(/[^a-zA-Z0-9_\- ]/g, '_').replace(/\s+/g, '_');
     const pptxPath = savePath || path.join(os.homedir(), 'Desktop', `Presentation_${safeTitle}.pptx`);
 
     const pptx = new PptxGenJS();
@@ -674,7 +674,7 @@ ipcMain.handle('anya:generate-ppt', async (event, { title, slides = [], htmlCont
     pptx.title = title || 'Presentation Deck';
 
     const slideList = (Array.isArray(slides) && slides.length > 0) ? slides : [
-      { title: title || 'Executive Presentation', subtitle: 'Generated by Aanya OS', content: ['Overview & Highlights'] }
+      { title: title || 'Executive Presentation', subtitle: 'Generated by Avni OS', content: ['Overview & Highlights'] }
     ];
 
     // Define Theme Palette
@@ -743,7 +743,7 @@ ipcMain.handle('anya:generate-ppt', async (event, { title, slides = [], htmlCont
       });
 
       // Slide Header Badge
-      slide.addText(`SLIDE ${idx + 1} OF ${slideList.length} • ANYA NEURAL BRIEFING`, {
+      slide.addText(`SLIDE ${idx + 1} OF ${slideList.length} • AVNI NEURAL BRIEFING`, {
         x: 0.8, y: 0.35, w: '88%', h: 0.35,
         fontSize: 10, color: themeConfig.badgeColor, fontFace: themeConfig.badgeFont, bold: true
       });
@@ -794,7 +794,7 @@ ipcMain.handle('anya:generate-ppt', async (event, { title, slides = [], htmlCont
       });
 
       // Footer
-      slide.addText(`${title || 'ANYA Neural Deck'}  |  Generated by ANYA Neural OS`, {
+      slide.addText(`${title || 'AVNI Neural Deck'}  |  Generated by AVNI Neural OS`, {
         x: 0.8, y: 6.9, w: '88%', h: 0.3,
         fontSize: 9, color: themeConfig.footerColor, fontFace: themeConfig.badgeFont
       });
@@ -814,7 +814,7 @@ ipcMain.handle('anya:generate-ppt', async (event, { title, slides = [], htmlCont
 
 // ─── WhatsApp Automation via Spotlight + Keyboard ────────────────────────────
 // Opens WhatsApp via Spotlight, navigates to a contact, sends a message or makes a call
-ipcMain.handle('anya:whatsapp-action', async (event, { contact, message, action }) => {
+ipcMain.handle('avni:whatsapp-action', async (event, { contact, message, action }) => {
   if (process.platform !== 'darwin') {
     return { success: false, error: 'WhatsApp automation only supported on macOS' };
   }
@@ -910,7 +910,7 @@ ipcMain.handle('anya:whatsapp-action', async (event, { contact, message, action 
 
 // ─── File System & Project Operations ─────────────────────────────────────────
 
-ipcMain.handle('anya:create-file', async (event, { filePath, content }) => {
+ipcMain.handle('avni:create-file', async (event, { filePath, content }) => {
   try {
     const os = require('os');
     let targetPath = filePath.replace(/^~/, os.homedir());
@@ -928,7 +928,7 @@ ipcMain.handle('anya:create-file', async (event, { filePath, content }) => {
   }
 });
 
-ipcMain.handle('anya:create-folder', async (event, { folderPath }) => {
+ipcMain.handle('avni:create-folder', async (event, { folderPath }) => {
   try {
     const os = require('os');
     let targetPath = folderPath.replace(/^~/, os.homedir());
@@ -944,7 +944,7 @@ ipcMain.handle('anya:create-folder', async (event, { folderPath }) => {
   }
 });
 
-ipcMain.handle('anya:read-file', async (event, { filePath }) => {
+ipcMain.handle('avni:read-file', async (event, { filePath }) => {
   try {
     const os = require('os');
     let targetPath = filePath.replace(/^~/, os.homedir());
@@ -955,7 +955,7 @@ ipcMain.handle('anya:read-file', async (event, { filePath }) => {
   }
 });
 
-ipcMain.handle('anya:list-files', async (event, { dirPath }) => {
+ipcMain.handle('avni:list-files', async (event, { dirPath }) => {
   try {
     const os = require('os');
     let targetPath = (dirPath || '~/Desktop').replace(/^~/, os.homedir());
@@ -966,7 +966,7 @@ ipcMain.handle('anya:list-files', async (event, { dirPath }) => {
   }
 });
 
-ipcMain.handle('anya:run-command', async (event, { command, cwd }) => {
+ipcMain.handle('avni:run-command', async (event, { command, cwd }) => {
   try {
     const os = require('os');
     const workingDir = cwd ? cwd.replace(/^~/, os.homedir()) : path.join(os.homedir(), 'Desktop');

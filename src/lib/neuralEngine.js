@@ -1,5 +1,5 @@
 /**
- * ANYA NEURAL ENGINE (Zero-Server Autonomous On-Device Brain)
+ * AVNI NEURAL ENGINE (Zero-Server Autonomous On-Device Brain)
  * Direct Multi-Tier Provider Failover: Gemini 2.0 Flash -> Groq Llama -> OpenRouter
  * Key Rotation, Cooldown Tracking, Token Analytics & Voice Synthesis
  * Updated to use Supabase backend with localStorage fallback
@@ -19,14 +19,14 @@ import {
 
 // Storage keys for localStorage fallback
 const STORAGE_KEYS = {
-  LOCAL_CHATS: 'anya_local_chats',
-  SETTINGS: 'anya_settings',
-  TOKEN_USAGE: 'anya_token_usage',
-  TIMERS: 'anya_active_timers',
-  ALARMS: 'anya_active_alarms',
-  NOTES: 'anya_quick_notes',
-  TASKS: 'anya_tasks',
-  API_KEYS: 'anya_api_keys',
+  LOCAL_CHATS: 'avni_local_chats',
+  SETTINGS: 'avni_settings',
+  TOKEN_USAGE: 'avni_token_usage',
+  TIMERS: 'avni_active_timers',
+  ALARMS: 'avni_active_alarms',
+  NOTES: 'avni_quick_notes',
+  TASKS: 'avni_tasks',
+  API_KEYS: 'avni_api_keys',
 };
 
 // Default fallback API keys pool (can be overridden in settings by user)
@@ -39,10 +39,10 @@ export const DEFAULT_SETTINGS = {
   freellmapiModel: 'auto',
   remoteUrl: 'http://127.0.0.1:8000',
   persona: 'sharp', // 'sharp' | 'jarvis' | 'casual' | 'concise'
-  assistantName: 'Aanya',
+  assistantName: 'Avni',
   voiceEnabled: true,
   voiceProvider: 'browser', // 'elevenlabs' | 'browser'
-  elevenLabsVoiceId: 'pNInz6obpgDQGcFmaJgB', // Adam / ANYA core voice
+  elevenLabsVoiceId: 'pNInz6obpgDQGcFmaJgB', // Adam / AVNI core voice
   hapticsEnabled: true,
   userName: 'Boss',
   geminiModel: 'gemini-3.8-flash',
@@ -122,7 +122,7 @@ class KeyManager {
     if (!key) return;
     const expiry = Date.now() + durationMinutes * 60 * 1000;
     this.cooldowns.set(key, expiry);
-    console.warn(`[ANYA] Key marked for cooldown until ${new Date(expiry).toLocaleTimeString()}`);
+    console.warn(`[AVNI] Key marked for cooldown until ${new Date(expiry).toLocaleTimeString()}`);
   }
 }
 
@@ -154,9 +154,9 @@ export function clearTokenUsage() {
   } catch (e) {}
 }
 
-// System Prompt for Aanya (ANYA)
-function buildSystemPrompt(userName = 'Boss', persona = 'sharp', assistantName = 'Aanya', mode = 'balanced') {
-  const name = (assistantName && assistantName.trim()) ? assistantName.trim() : 'Aanya';
+// System Prompt for Avni (AVNI)
+function buildSystemPrompt(userName = 'Boss', persona = 'sharp', assistantName = 'Avni', mode = 'balanced') {
+  const name = (assistantName && assistantName.trim()) ? assistantName.trim() : 'Avni';
   const nameUpper = name.toUpperCase();
 
   const personas = {
@@ -282,7 +282,7 @@ async function callGemini(messages, apiKey, userSettings, attachment = null, mod
 
       for (let i = 0; i < messages.length; i++) {
         const msg = messages[i];
-        const role = msg.role === 'assistant' || msg.role === 'anya' ? 'model' : 'user';
+        const role = msg.role === 'assistant' || msg.role === 'avni' ? 'model' : 'user';
         const parts = [{ text: msg.content || ' ' }];
 
         // If latest user message has attachment
@@ -325,14 +325,14 @@ async function callGemini(messages, apiKey, userSettings, attachment = null, mod
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       const usage = data.usageMetadata || {};
       if (usage.thoughtsTokenCount) {
-        console.log(`[ANYA Neural Thinking] ${usage.thoughtsTokenCount} thought reasoning tokens processed`);
+        console.log(`[AVNI Neural Thinking] ${usage.thoughtsTokenCount} thought reasoning tokens processed`);
       }
       recordTokenUsage('gemini', usage.promptTokenCount || 50, usage.candidatesTokenCount || 50);
 
       return text;
     } catch (err) {
       lastErr = err;
-      console.warn(`[ANYA] Gemini candidate ${model} failed:`, err.message);
+      console.warn(`[AVNI] Gemini candidate ${model} failed:`, err.message);
     }
   }
 
@@ -352,7 +352,7 @@ async function callGroq(messages, apiKey, userSettings, mode = 'balanced') {
   const groqMessages = [
     { role: 'system', content: buildSystemPrompt(userSettings.userName, userSettings.persona, userSettings.assistantName, mode) },
     ...messages.map(m => ({
-      role: m.role === 'assistant' || m.role === 'anya' ? 'assistant' : 'user',
+      role: m.role === 'assistant' || m.role === 'avni' ? 'assistant' : 'user',
       content: m.content
     }))
   ];
@@ -386,7 +386,7 @@ async function callGroq(messages, apiKey, userSettings, mode = 'balanced') {
       const choice = data.choices?.[0];
       const text = choice?.message?.content || '';
       if (choice?.message?.reasoning) {
-        console.log('[ANYA Neural Thinking] Groq native reasoning captured');
+        console.log('[AVNI Neural Thinking] Groq native reasoning captured');
       }
       const usage = data.usage || {};
       recordTokenUsage('groq', usage.prompt_tokens || 40, usage.completion_tokens || 40);
@@ -394,7 +394,7 @@ async function callGroq(messages, apiKey, userSettings, mode = 'balanced') {
       return text;
     } catch (err) {
       lastErr = err;
-      console.warn(`[ANYA] Groq model ${model} attempt failed:`, err.message);
+      console.warn(`[AVNI] Groq model ${model} attempt failed:`, err.message);
     }
   }
 
@@ -408,7 +408,7 @@ async function callOpenRouter(messages, apiKey, userSettings, mode = 'balanced')
   const openRouterMessages = [
     { role: 'system', content: buildSystemPrompt(userSettings.userName, userSettings.persona, userSettings.assistantName, mode) },
     ...messages.map(m => ({
-      role: m.role === 'assistant' || m.role === 'anya' ? 'assistant' : 'user',
+      role: m.role === 'assistant' || m.role === 'avni' ? 'assistant' : 'user',
       content: m.content || ' '
     }))
   ];
@@ -424,7 +424,7 @@ async function callOpenRouter(messages, apiKey, userSettings, mode = 'balanced')
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
           'HTTP-Referer': window.location.origin,
-          'X-Title': 'ANYA Neural OS'
+          'X-Title': 'AVNI Neural OS'
         },
         body: JSON.stringify({
           model: targetModel,
@@ -488,7 +488,7 @@ export async function callFreeLLMAPI(messages, userSettings, attachment = null, 
       }
 
       return {
-        role: m.role === 'assistant' || m.role === 'anya' ? 'assistant' : 'user',
+        role: m.role === 'assistant' || m.role === 'avni' ? 'assistant' : 'user',
         content
       };
     })
@@ -542,22 +542,22 @@ export async function thinkOnDevice(messages, userSettings, attachment = null) {
   // deep   = Gemini direct (strongest), no gateway, full tools.
   // balanced = FreeLLMAPI gateway first, then direct providers (default).
   if (mode === 'fast') {
-    console.log('[ANYA] Fast mode — routing directly to Groq (gateway bypassed)');
+    console.log('[AVNI] Fast mode — routing directly to Groq (gateway bypassed)');
     return routeDirect(messages, withMode(userSettings), ['groq', 'gemini', 'openrouter'], attachment, 'fast');
   }
 
   if (mode === 'deep') {
-    console.log('[ANYA] Deep mode — routing directly to Gemini (gateway bypassed)');
+    console.log('[AVNI] Deep mode — routing directly to Gemini (gateway bypassed)');
     return routeDirect(messages, withMode(userSettings), ['gemini', 'groq', 'openrouter'], attachment, 'deep');
   }
 
   // ── Tier 0: FreeLLMAPI Unified Gateway (7.4B tokens, 34 providers, auto failover) ──
   if (userSettings.useFreeLLMAPI !== false) {
     try {
-      console.log('[ANYA] Routing inference through FreeLLMAPI Unified Gateway...');
+      console.log('[AVNI] Routing inference through FreeLLMAPI Unified Gateway...');
       return await callFreeLLMAPI(messages, withMode(userSettings), attachment);
     } catch (gatewayErr) {
-      console.warn('[ANYA] FreeLLMAPI Gateway unavailable/failed, falling back to direct providers:', gatewayErr.message);
+      console.warn('[AVNI] FreeLLMAPI Gateway unavailable/failed, falling back to direct providers:', gatewayErr.message);
     }
   }
 
@@ -591,7 +591,7 @@ async function routeDirect(messages, userSettings, providerOrder, attachment, mo
       }
 
       try {
-        console.log(`[ANYA] Dispatching request to ${provider.toUpperCase()} (${mode} mode)`);
+        console.log(`[AVNI] Dispatching request to ${provider.toUpperCase()} (${mode} mode)`);
         if (provider === 'gemini') {
           return await callGemini(messages, key, userSettings, attachment, userSettings.thinkingMode || 'balanced');
         } else if (provider === 'groq') {
@@ -601,7 +601,7 @@ async function routeDirect(messages, userSettings, providerOrder, attachment, mo
           return await callOpenRouter(messages, key, userSettings, userSettings.thinkingMode || 'balanced');
         }
       } catch (err) {
-        console.warn(`[ANYA] Key attempt failed for ${provider}:`, err.message);
+        console.warn(`[AVNI] Key attempt failed for ${provider}:`, err.message);
         keyManager.markCooldown(key, 5);
         lastError = err;
       }
@@ -630,7 +630,7 @@ export function stopSpeaking() {
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
   }
-  window.dispatchEvent(new CustomEvent('anya-speech-stopped'));
+  window.dispatchEvent(new CustomEvent('avni-speech-stopped'));
 }
 
 // Voice Output Synthesis (ElevenLabs + Browser SpeechSynthesis Fallback)
@@ -655,7 +655,7 @@ export async function speakOnDevice(text, userSettings) {
 
   if (!cleanText) return;
 
-  window.dispatchEvent(new CustomEvent('anya-speech-started', { detail: { text: cleanText } }));
+  window.dispatchEvent(new CustomEvent('avni-speech-started', { detail: { text: cleanText } }));
 
   // Try ElevenLabs if configured
   const elevenKey = keyManager.getValidKey('elevenlabs');
@@ -686,7 +686,7 @@ export async function speakOnDevice(text, userSettings) {
         const audioUrl = URL.createObjectURL(audioBlob);
         currentAudio = new Audio(audioUrl);
         currentAudio.onended = () => {
-          window.dispatchEvent(new CustomEvent('anya-speech-stopped'));
+          window.dispatchEvent(new CustomEvent('avni-speech-stopped'));
         };
         currentAudio.onerror = () => {
           fallbackSpeech(cleanText);
@@ -695,7 +695,7 @@ export async function speakOnDevice(text, userSettings) {
         return;
       }
     } catch (e) {
-      console.warn('[ANYA] ElevenLabs TTS failed, falling back to Web Speech API:', e);
+      console.warn('[AVNI] ElevenLabs TTS failed, falling back to Web Speech API:', e);
     }
   }
 
@@ -705,7 +705,7 @@ export async function speakOnDevice(text, userSettings) {
 
 function fallbackSpeech(text) {
   if (!('speechSynthesis' in window)) {
-    window.dispatchEvent(new CustomEvent('anya-speech-stopped'));
+    window.dispatchEvent(new CustomEvent('avni-speech-stopped'));
     return;
   }
 
@@ -749,10 +749,10 @@ function fallbackSpeech(text) {
     if (voice) utterance.voice = voice;
 
     utterance.onend = () => {
-      window.dispatchEvent(new CustomEvent('anya-speech-stopped'));
+      window.dispatchEvent(new CustomEvent('avni-speech-stopped'));
     };
     utterance.onerror = () => {
-      window.dispatchEvent(new CustomEvent('anya-speech-stopped'));
+      window.dispatchEvent(new CustomEvent('avni-speech-stopped'));
     };
 
     synth.speak(utterance);
@@ -873,7 +873,7 @@ export function deleteTask(taskId) {
 
 // Active user helper for guest mode
 export const getActiveUser = () => {
-  const customUser = localStorage.getItem('anya_user_profile');
+  const customUser = localStorage.getItem('avni_user_profile');
   if (customUser) {
     try {
       return JSON.parse(customUser);
@@ -881,7 +881,7 @@ export const getActiveUser = () => {
   }
   return {
     id: 'boss-001',
-    email: 'boss@anya.ai',
+    email: 'boss@avni.ai',
     name: 'Boss',
     role: 'Commander',
     mode: 'Executive Local Guest'
@@ -889,14 +889,14 @@ export const getActiveUser = () => {
 };
 
 export const saveUserProfile = (profile) => {
-  localStorage.setItem('anya_user_profile', JSON.stringify(profile));
+  localStorage.setItem('avni_user_profile', JSON.stringify(profile));
 };
 
 // Guest mode functions
 export const isGuestMode = () => {
-  return localStorage.getItem('anya_guest_mode') !== 'false';
+  return localStorage.getItem('avni_guest_mode') !== 'false';
 };
 
 export const setGuestMode = (enabled = true) => {
-  localStorage.setItem('anya_guest_mode', enabled ? 'true' : 'false');
+  localStorage.setItem('avni_guest_mode', enabled ? 'true' : 'false');
 };

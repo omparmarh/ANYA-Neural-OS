@@ -99,7 +99,7 @@ export default function ChatArea({
     });
   };
 
-  const assistantName = settings?.assistantName || 'Aanya';
+  const assistantName = settings?.assistantName || 'Avni';
 
   return (
     <div

@@ -3,7 +3,7 @@ import { Phone, PhoneCall, PhoneOff, Mic, Send, Sparkles, X, User, Volume2 } fro
 import { takeoverCall, hangupCall, sendCallInstruction } from '../lib/telephonyBridge';
 import { triggerHaptic } from '../lib/neuralEngine';
 
-export default function CallScreenerWidget({ callSession, onClose, assistantName = 'Aanya' }) {
+export default function CallScreenerWidget({ callSession, onClose, assistantName = 'Avni' }) {
   const [customInstruction, setCustomInstruction] = useState('');
   const [isTakingOver, setIsTakingOver] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
@@ -87,7 +87,7 @@ export default function CallScreenerWidget({ callSession, onClose, assistantName
             <span>AI EXECUTIVE CALL SUMMARY</span>
           </div>
           <div className="text-slate-200 text-[11px] leading-relaxed bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-            {callSession.summary || 'Aanya is conversing with the caller to identify reason for call...'}
+            {callSession.summary || 'Avni is conversing with the caller to identify reason for call...'}
           </div>
         </div>
 
@@ -97,10 +97,10 @@ export default function CallScreenerWidget({ callSession, onClose, assistantName
             callSession.transcript.map((t, idx) => (
               <div
                 key={idx}
-                className={`flex flex-col ${t.speaker === 'Aanya' ? 'items-start' : 'items-end'}`}
+                className={`flex flex-col ${t.speaker === 'Avni' ? 'items-start' : 'items-end'}`}
               >
                 <div className={`max-w-[85%] rounded-xl px-3 py-2 text-[11px] leading-relaxed border ${
-                  t.speaker === 'Aanya'
+                  t.speaker === 'Avni'
                     ? 'bg-cyan-950/40 border-cyan-500/30 text-cyan-200'
                     : 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
                 }`}>
@@ -145,7 +145,7 @@ export default function CallScreenerWidget({ callSession, onClose, assistantName
               value={customInstruction}
               onChange={(e) => setCustomInstruction(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSendInstruction()}
-              placeholder="Tell Aanya what to speak to caller..."
+              placeholder="Tell Avni what to speak to caller..."
               className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
             />
             <button

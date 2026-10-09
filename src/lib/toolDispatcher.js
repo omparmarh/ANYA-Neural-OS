@@ -1,5 +1,5 @@
 /**
- * ANYA TOOL DISPATCHER & INTENT PARSER
+ * AVNI TOOL DISPATCHER & INTENT PARSER
  * Parses JSON tool calls or intent commands, updates state, and handles native device triggers.
  */
 
@@ -367,7 +367,7 @@ export async function executeAppLaunch(app, query = '') {
     // ── Camera ────────────────────────────────────────────────────────────
     case 'camera':
       name = 'Camera';
-      window.dispatchEvent(new CustomEvent('anya-open-camera'));
+      window.dispatchEvent(new CustomEvent('avni-open-camera'));
       return { success: true, app: 'Camera', launched: true };
 
     // ── GitHub ────────────────────────────────────────────────────────────
@@ -470,7 +470,7 @@ export async function executeAppLaunch(app, query = '') {
       }
     }
   } catch (e) {
-    console.warn('[ANYA] App launch error:', e);
+    console.warn('[AVNI] App launch error:', e);
     try { window.open(targetUrl, '_blank', 'noopener,noreferrer'); } catch { }
   }
 
@@ -495,7 +495,7 @@ export async function executeMediaControl(action = 'play', app = 'ytmusic', quer
       return { success: true, action, app: appKey, ...res };
     }
   } catch (e) {
-    console.warn('[ANYA] Media control error:', e);
+    console.warn('[AVNI] Media control error:', e);
     return { success: false, error: e.message };
   }
 }
@@ -542,7 +542,7 @@ export async function executeWebSearch(query, engine = 'google', openExternal = 
       opened: false
     };
   } catch (e) {
-    console.warn('[ANYA] RAG execution error:', e);
+    console.warn('[AVNI] RAG execution error:', e);
     return { success: true, engine, query, url, opened: false };
   }
 }
@@ -553,7 +553,7 @@ export async function executeWebSearch(query, engine = 'google', openExternal = 
  * Called automatically by the tool handler when the AI emits { "tool": "generate_pdf" }.
  */
 export async function generatePDF(title, markdownContent, theme = 'cyberpunk') {
-  const safeTitle = title || 'ANYA Executive Report';
+  const safeTitle = title || 'AVNI Executive Report';
   const html = marked.parse(markdownContent || '');
 
   if (!_isElectron) {
@@ -598,7 +598,7 @@ export async function generatePDF(title, markdownContent, theme = 'cyberpunk') {
 <body>
   <div class="header">
     <h1>${safeTitle}</h1>
-    <div class="meta">ANYA NEURAL OPERATING SYSTEM // INTEL REPORT &bull; ${new Date().toLocaleDateString()}</div>
+    <div class="meta">AVNI NEURAL OPERATING SYSTEM // INTEL REPORT &bull; ${new Date().toLocaleDateString()}</div>
   </div>
   <div>${html}</div>
 </body>
@@ -619,7 +619,7 @@ export async function generatePDF(title, markdownContent, theme = 'cyberpunk') {
         return { success: true, method: 'blob_download' };
       }
     } catch (e) {
-      console.warn('[ANYA PDF Warning]:', e);
+      console.warn('[AVNI PDF Warning]:', e);
       return { success: true, method: 'fallback_text' };
     }
   }
@@ -678,7 +678,7 @@ export async function generatePPT(title, slides = [], htmlContent = '', theme = 
       fill: { color: primaryColor }
     });
 
-    firstSlide.addText(title || 'ANYA Intelligence Briefing', {
+    firstSlide.addText(title || 'AVNI Intelligence Briefing', {
       x: 0.8, y: 2.2, w: 11.5, h: 1.5,
       fontSize: 36,
       bold: true,
@@ -741,7 +741,7 @@ export async function generatePPT(title, slides = [], htmlContent = '', theme = 
         lineSpacingMultiple: 1.55
       });
 
-      slide.addText(`ANYA Neural OS // Slide ${idx + 2}`, {
+      slide.addText(`AVNI Neural OS // Slide ${idx + 2}`, {
         x: 0.8, y: 6.9, w: 11.0, h: 0.3,
         fontSize: 10,
         color: '64748B',
@@ -749,7 +749,7 @@ export async function generatePPT(title, slides = [], htmlContent = '', theme = 
       });
     });
 
-    const safeFileName = `${(title || 'ANYA_Presentation').replace(/[^a-zA-Z0-9_-]/g, '_')}.pptx`;
+    const safeFileName = `${(title || 'AVNI_Presentation').replace(/[^a-zA-Z0-9_-]/g, '_')}.pptx`;
 
     // Electron: delegate to main-process IPC (saves to ~/Desktop and opens natively)
     if (_isElectron && window?.electronAPI?.generatePPT) {
@@ -757,7 +757,7 @@ export async function generatePPT(title, slides = [], htmlContent = '', theme = 
         const result = await window.electronAPI.generatePPT(title, slideData, htmlContent, theme);
         if (result && result.success) return result;
       } catch (electronErr) {
-        console.warn('[ANYA PPT] Electron IPC failed, falling back to browser download:', electronErr);
+        console.warn('[AVNI PPT] Electron IPC failed, falling back to browser download:', electronErr);
       }
     }
 
@@ -775,7 +775,7 @@ export async function generatePPT(title, slides = [], htmlContent = '', theme = 
 
     return { success: true, method: 'browser_download', fileName: safeFileName };
   } catch (err) {
-    console.error('[ANYA PPT Generation Error]:', err);
+    console.error('[AVNI PPT Generation Error]:', err);
     return { success: false, error: err.message };
   }
 }

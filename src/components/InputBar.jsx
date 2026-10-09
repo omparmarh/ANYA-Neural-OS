@@ -9,7 +9,7 @@ export default function InputBar({
   onToggleSpeechRecognition,
   interimTranscript = '',
   disabled = false,
-  assistantName = 'Aanya'
+  assistantName = 'Avni'
 }) {
   const [inputText, setInputText] = useState('');
   const [attachment, setAttachment] = useState(null);

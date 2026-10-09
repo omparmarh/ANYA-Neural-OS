@@ -1,5 +1,5 @@
 /**
- * ANYA ADVANCED RAG (Retrieval-Augmented Generation) ENGINE
+ * AVNI ADVANCED RAG (Retrieval-Augmented Generation) ENGINE
  * ─────────────────────────────────────────────────────────────────────────────
  * Autonomous on-device & live web retrieval engine.
  * - Extracts real-time knowledge from DuckDuckGo Instant Answers & Wikipedia.

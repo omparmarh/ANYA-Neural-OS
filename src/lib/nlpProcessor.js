@@ -1,5 +1,5 @@
 /**
- * ANYA NLP PREPROCESSOR
+ * AVNI NLP PREPROCESSOR
  * ─────────────────────────────────────────────────────────────────────────────
  * Client-side Natural Language Processor that runs BEFORE the AI model.
  * - Detects user intent and extracts entities locally with zero latency
@@ -219,7 +219,7 @@ function extractAppAndQuery(rawText) {
 
 // ─── Intent Classifier ────────────────────────────────────────────────────────
 
-function classifyIntent(text, assistantName = 'Aanya') {
+function classifyIntent(text, assistantName = 'Avni') {
   const lower = text.toLowerCase().trim();
 
   // PPT / Presentation Intent
@@ -243,7 +243,7 @@ function classifyIntent(text, assistantName = 'Aanya') {
     return { type: 'file_system' };
   }
 
-  // Assistant identity query intent (ensures AI is 100% aware her name is Aanya)
+  // Assistant identity query intent (ensures AI is 100% aware her name is Avni)
   const IDENTITY_PATTERNS = [
     /what(?:'s|\s+is|\s+are)?\s+(?:your|ur)\s+name/i,
     /who\s+(?:are|r)\s+(?:you|u)\b/i,
@@ -253,8 +253,8 @@ function classifyIntent(text, assistantName = 'Aanya') {
     /what\s+do\s+i\s+call\s+(?:you|u)\b/i,
     /tell\s+me\s+(?:your\s+name|who\s+you\s+are)\b/i,
     /do\s+you\s+(?:have|know)\s+(?:a\s+name|your\s+name)\b/i,
-    /(?:are|r)\s+you\s+(?:aanya|anya)\b/i,
-    /is\s+your\s+name\s+(?:aanya|anya)\b/i,
+    /(?:are|r)\s+you\s+(?:aavni|avni)\b/i,
+    /is\s+your\s+name\s+(?:aavni|avni)\b/i,
     /^your\s+name\s*\??$/i
   ];
   for (const pattern of IDENTITY_PATTERNS) {
@@ -483,7 +483,7 @@ Format:
 {
   "tool": "generate_pdf",
   "args": {
-    "title": "${intent.title || 'Aanya Document'}",
+    "title": "${intent.title || 'Avni Document'}",
     "content": "# Executive Overview\\n\\nWrite the complete detailed report in rich Markdown..."
   }
 }
@@ -540,7 +540,7 @@ Emit create_folder and create_file tool calls now!`);
       break;
 
     case 'identity': {
-      const name = intent.assistantName || 'Aanya';
+      const name = intent.assistantName || 'Avni';
       parts.push(`[NLP] User inquiry regarding your identity or name.
 INSTRUCTION:
 - You are strictly ${name}, an autonomous, highly intelligent female AI operating agent and personal assistant.
@@ -559,12 +559,12 @@ let _lastIntent = null;
 /**
  * preprocess(userText, assistantName)
  * @param {string} userText - Raw user input
- * @param {string} assistantName - Name of the AI assistant (default: 'Aanya')
+ * @param {string} assistantName - Name of the AI assistant (default: 'Avni')
  * @returns {{ enhancedText: string, intent: object }} 
  *   enhancedText: the original text with NLP context injected (sent to model)
  *   intent: structured intent object (for local optimistic execution)
  */
-export function preprocess(userText, assistantName = 'Aanya') {
+export function preprocess(userText, assistantName = 'Avni') {
   const text = (userText || '').trim();
 
   // Detect intent
@@ -597,7 +597,7 @@ export function preprocess(userText, assistantName = 'Aanya') {
  * preprocessAsync(userText, assistantName)
  * Async preprocessor that fetches live RAG data for web search/updated info queries
  */
-export async function preprocessAsync(userText, assistantName = 'Aanya') {
+export async function preprocessAsync(userText, assistantName = 'Avni') {
   const result = preprocess(userText, assistantName);
 
   if (result.intent.type === 'web_search' && result.intent.query) {

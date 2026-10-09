@@ -1,4 +1,4 @@
--- Jarvis (ANYA Neural OS) Supabase Migration Script
+-- Jarvis (AVNI Neural OS) Supabase Migration Script
 -- Run this in the Supabase SQL editor to set up the required tables
 
 -- Enable UUID extension if not already enabled
@@ -9,7 +9,7 @@ create table if not exists profiles (
   id uuid references auth.users(id) primary key,
   name text,
   role text default 'Commander',
-  assistant_name text default 'Aanya',
+  assistant_name text default 'Avni',
   voice_enabled boolean default true,
   voice_provider text default 'browser',
   persona text default 'sharp',

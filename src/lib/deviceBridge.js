@@ -1,5 +1,5 @@
 /**
- * ANYA DEVICE BRIDGE
+ * AVNI DEVICE BRIDGE
  * ─────────────────────────────────────────────────────────────────────────────
  * Abstracts interaction with the host device:
  *   - In Electron: uses IPC → AppleScript to control Chrome tabs, media, apps
@@ -65,13 +65,13 @@ export async function openApp(appKey, url) {
     return { success: true, reused: result !== 'opened_new', url };
   } else {
     // Browser: use named window target so same tab gets reused
-    const slot = appKey || 'anya-app';
+    const slot = appKey || 'avni-app';
     const existing = WINDOW_SLOTS[slot];
     if (existing && !existing.closed) {
       existing.location.href = url;
       existing.focus();
     } else {
-      WINDOW_SLOTS[slot] = window.open(url, `anya-${slot}`, 'noopener');
+      WINDOW_SLOTS[slot] = window.open(url, `avni-${slot}`, 'noopener');
     }
     return { success: true, reused: !!existing && !existing?.closed, url };
   }
@@ -139,7 +139,7 @@ export async function playSong(appKey, query) {
         playUrl = resolved.playUrl;
       }
     } catch (e) {
-      console.warn('[ANYA] resolvePlayUrl failed, using search URL:', e.message);
+      console.warn('[AVNI] resolvePlayUrl failed, using search URL:', e.message);
     }
 
     const result = await window.electronAPI.openInChrome(playUrl, tabPattern);

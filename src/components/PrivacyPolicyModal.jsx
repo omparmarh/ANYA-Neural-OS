@@ -12,7 +12,7 @@ export default function PrivacyPolicyModal({ isOpen, onClose }) {
           <div className="flex items-center gap-2.5">
             <ShieldCheck className="w-5 h-5 text-cyan-400" />
             <h3 className="text-sm font-bold tracking-wider uppercase text-white">
-              ANYA Neural OS · Privacy & Architecture Policy
+              AVNI Neural OS · Privacy & Architecture Policy
             </h3>
           </div>
           <button

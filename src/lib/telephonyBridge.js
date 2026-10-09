@@ -1,6 +1,6 @@
 /**
- * ANYA TELEPHONY BRIDGE & REAL-TIME WEBSOCKET CLIENT
- * Connects ANYA Client UI to live call screening sessions & controls.
+ * AVNI TELEPHONY BRIDGE & REAL-TIME WEBSOCKET CLIENT
+ * Connects AVNI Client UI to live call screening sessions & controls.
  */
 
 let _telephonySocket = null;
@@ -25,7 +25,7 @@ export function initTelephonyBridge(serverUrl = 'ws://localhost:3001') {
     _telephonySocket = new WebSocket(wsUrl);
 
     _telephonySocket.onopen = () => {
-      console.log('[ANYA Telephony] Connected to live call screener daemon.');
+      console.log('[AVNI Telephony] Connected to live call screener daemon.');
       _reconnectAttempts = 0;
     };
 
@@ -34,7 +34,7 @@ export function initTelephonyBridge(serverUrl = 'ws://localhost:3001') {
         const payload = JSON.parse(event.data);
         handleTelephonyEvent(payload);
       } catch (e) {
-        console.warn('[ANYA Telephony] Message parse error:', e);
+        console.warn('[AVNI Telephony] Message parse error:', e);
       }
     };
 
@@ -51,7 +51,7 @@ export function initTelephonyBridge(serverUrl = 'ws://localhost:3001') {
       _telephonySocket = null;
     };
   } catch (e) {
-    console.warn('[ANYA Telephony] Setup error:', e);
+    console.warn('[AVNI Telephony] Setup error:', e);
   }
 }
 
@@ -62,12 +62,12 @@ function handleTelephonyEvent(payload) {
   const { type, data } = payload;
 
   switch (type) {
-    case 'anya-call-started':
+    case 'avni-call-started':
       _activeCalls.set(data.callSid, data);
       notifyUI();
       break;
 
-    case 'anya-call-transcript': {
+    case 'avni-call-transcript': {
       const call = _activeCalls.get(data.callSid);
       if (call) {
         call.transcript = data.fullTranscript || call.transcript;
@@ -78,7 +78,7 @@ function handleTelephonyEvent(payload) {
       break;
     }
 
-    case 'anya-call-state-changed': {
+    case 'avni-call-state-changed': {
       const call = _activeCalls.get(data.callSid);
       if (call) {
         call.state = data.state;
@@ -88,7 +88,7 @@ function handleTelephonyEvent(payload) {
       break;
     }
 
-    case 'anya-call-ended':
+    case 'avni-call-ended':
       _activeCalls.delete(data.callSid);
       notifyUI();
       break;
@@ -97,7 +97,7 @@ function handleTelephonyEvent(payload) {
 
 function notifyUI() {
   const calls = Array.from(_activeCalls.values());
-  window.dispatchEvent(new CustomEvent('anya-telephony-update', { detail: { calls } }));
+  window.dispatchEvent(new CustomEvent('avni-telephony-update', { detail: { calls } }));
 }
 
 /**
@@ -140,7 +140,7 @@ export async function hangupCall(callSid, signOffMessage = '', remoteUrl = 'http
 }
 
 /**
- * Send custom text instruction for Aanya to speak to the caller on the fly
+ * Send custom text instruction for Avni to speak to the caller on the fly
  */
 export async function sendCallInstruction(callSid, instruction, remoteUrl = 'http://localhost:3001') {
   try {

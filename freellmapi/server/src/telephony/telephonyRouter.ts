@@ -1,5 +1,5 @@
 /**
- * ANYA TELEPHONY ROUTER & TWILIO WEBHOOK HANDLER
+ * AVNI TELEPHONY ROUTER & TWILIO WEBHOOK HANDLER
  */
 
 import { Router, Request, Response } from 'express';
@@ -9,7 +9,7 @@ export const telephonyRouter = Router();
 
 /**
  * Twilio Webhook: /api/voice/incoming
- * Called when an incoming phone call is routed to Aanya.
+ * Called when an incoming phone call is routed to Avni.
  * Returns TwiML XML instructing Twilio to open a WebSocket audio stream.
  */
 telephonyRouter.post('/incoming', (req: Request, res: Response) => {
@@ -31,7 +31,7 @@ telephonyRouter.post('/incoming', (req: Request, res: Response) => {
   // TwiML response to answer and open WebSocket audio stream
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Say voice="Google.en-US-Standard-C">Connecting to Aanya executive call screening system.</Say>
+    <Say voice="Google.en-US-Standard-C">Connecting to Avni executive call screening system.</Say>
     <Connect>
         <Stream url="${streamUrl}">
             <Parameter name="callSid" value="${callSid}" />
@@ -62,7 +62,7 @@ telephonyRouter.post('/takeover', (req: Request, res: Response) => {
   }
 
   callManager.updateState(callSid, 'TAKEOVER');
-  callManager.appendTranscript(callSid, 'Aanya', '[User Initiated Live Call Takeover]');
+  callManager.appendTranscript(callSid, 'Avni', '[User Initiated Live Call Takeover]');
 
   res.json({
     success: true,
@@ -82,7 +82,7 @@ telephonyRouter.post('/hangup', (req: Request, res: Response) => {
     return res.status(400).json({ success: false, error: 'callSid is required' });
   }
 
-  callManager.appendTranscript(callSid, 'Aanya', signOffMessage || 'Thank you for calling. Have a great day!');
+  callManager.appendTranscript(callSid, 'Avni', signOffMessage || 'Thank you for calling. Have a great day!');
   callManager.endSession(callSid, 'user_hangup');
 
   res.json({ success: true, callSid, message: 'Call terminated' });
@@ -90,7 +90,7 @@ telephonyRouter.post('/hangup', (req: Request, res: Response) => {
 
 /**
  * REST API: POST /api/voice/instruct
- * Inject custom voice instruction for Aanya to speak to the caller
+ * Inject custom voice instruction for Avni to speak to the caller
  */
 telephonyRouter.post('/instruct', (req: Request, res: Response) => {
   const { callSid, instruction } = req.body;

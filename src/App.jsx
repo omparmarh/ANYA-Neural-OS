@@ -64,28 +64,28 @@ export default function App() {
   // Mobile back button handler (popstate) to go back 1 step instead of exiting app
   useEffect(() => {
     // Push initial history state so back button can be intercepted
-    try { window.history.pushState({ page: 'anya' }, ''); } catch {}
+    try { window.history.pushState({ page: 'avni' }, ''); } catch {}
 
     const handlePopState = (e) => {
       if (isSidebarOpen) {
         e.preventDefault();
         setIsSidebarOpen(false);
-        try { window.history.pushState({ page: 'anya' }, ''); } catch {}
+        try { window.history.pushState({ page: 'avni' }, ''); } catch {}
       } else if (isSettingsOpen) {
         e.preventDefault();
         setIsSettingsOpen(false);
-        try { window.history.pushState({ page: 'anya' }, ''); } catch {}
+        try { window.history.pushState({ page: 'avni' }, ''); } catch {}
       } else if (isPrivacyOpen) {
         e.preventDefault();
         setIsPrivacyOpen(false);
-        try { window.history.pushState({ page: 'anya' }, ''); } catch {}
+        try { window.history.pushState({ page: 'avni' }, ''); } catch {}
       } else if (isCameraOpen) {
         e.preventDefault();
         setIsCameraOpen(false);
-        try { window.history.pushState({ page: 'anya' }, ''); } catch {}
+        try { window.history.pushState({ page: 'avni' }, ''); } catch {}
       } else {
         // Prevent accidental app close on mobile, push state back
-        try { window.history.pushState({ page: 'anya' }, ''); } catch {}
+        try { window.history.pushState({ page: 'avni' }, ''); } catch {}
       }
     };
 
@@ -99,15 +99,15 @@ export default function App() {
       setActiveTelephonyCalls(e.detail?.calls || []);
     };
 
-    window.addEventListener('anya-telephony-update', handleTelephonyUpdate);
+    window.addEventListener('avni-telephony-update', handleTelephonyUpdate);
     return () => {
-      window.removeEventListener('anya-telephony-update', handleTelephonyUpdate);
+      window.removeEventListener('avni-telephony-update', handleTelephonyUpdate);
     };
   }, [settings.remoteUrl]);
 
   const [timers, setTimers] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('anya_active_timers') || '[]');
+      return JSON.parse(localStorage.getItem('avni_active_timers') || '[]');
     } catch {
       return [];
     }
@@ -115,7 +115,7 @@ export default function App() {
 
   const [alarms, setAlarms] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('anya_active_alarms') || '[]');
+      return JSON.parse(localStorage.getItem('avni_active_alarms') || '[]');
     } catch {
       return [];
     }
@@ -123,7 +123,7 @@ export default function App() {
 
   const [notes, setNotes] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('anya_quick_notes') || '[]');
+      return JSON.parse(localStorage.getItem('avni_quick_notes') || '[]');
     } catch {
       return [];
     }
@@ -131,7 +131,7 @@ export default function App() {
 
   const [tasks, setTasks] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('anya_tasks') || '[]');
+      return JSON.parse(localStorage.getItem('avni_tasks') || '[]');
     } catch {
       return [];
     }
@@ -232,11 +232,11 @@ export default function App() {
         loadInitialData();
       }
     };
-    window.addEventListener('anya-auth-changed', handleLocalAuthChange);
+    window.addEventListener('avni-auth-changed', handleLocalAuthChange);
 
     return () => {
       subscription?.unsubscribe?.();
-      window.removeEventListener('anya-auth-changed', handleLocalAuthChange);
+      window.removeEventListener('avni-auth-changed', handleLocalAuthChange);
     };
   }, []);
 
@@ -372,19 +372,19 @@ export default function App() {
   }, [threads, settings, isAuthenticated]);
 
   useEffect(() => {
-    localStorage.setItem('anya_active_timers', JSON.stringify(timers));
+    localStorage.setItem('avni_active_timers', JSON.stringify(timers));
   }, [timers]);
 
   useEffect(() => {
-    localStorage.setItem('anya_active_alarms', JSON.stringify(alarms));
+    localStorage.setItem('avni_active_alarms', JSON.stringify(alarms));
   }, [alarms]);
 
   useEffect(() => {
-    localStorage.setItem('anya_quick_notes', JSON.stringify(notes));
+    localStorage.setItem('avni_quick_notes', JSON.stringify(notes));
   }, [notes]);
 
   useEffect(() => {
-    localStorage.setItem('anya_tasks', JSON.stringify(tasks));
+    localStorage.setItem('avni_tasks', JSON.stringify(tasks));
   }, [tasks]);
 
   // Listen to speech audio events & tokens
@@ -394,16 +394,16 @@ export default function App() {
     const handleTokensUpdate = (e) => setTokenUsage(e.detail);
     const handleOpenCamera = () => setIsCameraOpen(true);
 
-    window.addEventListener('anya-speech-started', handleSpeechStart);
-    window.addEventListener('anya-speech-stopped', handleSpeechStop);
-    window.addEventListener('anya-tokens-updated', handleTokensUpdate);
-    window.addEventListener('anya-open-camera', handleOpenCamera);
+    window.addEventListener('avni-speech-started', handleSpeechStart);
+    window.addEventListener('avni-speech-stopped', handleSpeechStop);
+    window.addEventListener('avni-tokens-updated', handleTokensUpdate);
+    window.addEventListener('avni-open-camera', handleOpenCamera);
 
     return () => {
-      window.removeEventListener('anya-speech-started', handleSpeechStart);
-      window.removeEventListener('anya-speech-stopped', handleSpeechStop);
-      window.removeEventListener('anya-tokens-updated', handleTokensUpdate);
-      window.removeEventListener('anya-open-camera', handleOpenCamera);
+      window.removeEventListener('avni-speech-started', handleSpeechStart);
+      window.removeEventListener('avni-speech-stopped', handleSpeechStop);
+      window.removeEventListener('avni-tokens-updated', handleTokensUpdate);
+      window.removeEventListener('avni-open-camera', handleOpenCamera);
     };
   }, []);
 
@@ -419,7 +419,7 @@ export default function App() {
           const nextSec = timer.remainingSeconds - 1;
           if (nextSec <= 0) {
             playAlertChime('timer_done');
-            sendNotification('ANYA Timer Complete', `Timer "${timer.label}" of ${Math.round(timer.totalSeconds / 60)}m has finished!`);
+            sendNotification('AVNI Timer Complete', `Timer "${timer.label}" of ${Math.round(timer.totalSeconds / 60)}m has finished!`);
             return { ...timer, remainingSeconds: 0, isFinished: true };
           }
           return { ...timer, remainingSeconds: nextSec };
@@ -438,7 +438,7 @@ export default function App() {
         alarms.forEach(alarm => {
           if (alarm.active && alarm.time === currentTimeStr && !alarm.isRinging) {
             playAlertChime('alarm');
-            sendNotification('ANYA Scheduled Alarm', `Alarm: ${alarm.label || 'Scheduled Alert'}`);
+            sendNotification('AVNI Scheduled Alarm', `Alarm: ${alarm.label || 'Scheduled Alert'}`);
             setAlarms(prev => prev.map(a => a.id === alarm.id ? { ...a, isRinging: true } : a));
           }
         });
@@ -607,7 +607,7 @@ export default function App() {
       }
 
       else if (tool === 'generate_pdf' || tool === 'create_pdf') {
-        const title = args.title || args.name || 'Aanya Document';
+        const title = args.title || args.name || 'Avni Document';
         const content = args.content || args.text || args.markdown || '';
         const theme = args.theme || 'cyberpunk';
         const res = await generatePDF(title, content, theme);
@@ -620,7 +620,7 @@ export default function App() {
       }
 
       else if (tool === 'generate_ppt' || tool === 'create_ppt' || tool === 'generate_presentation') {
-        const title = args.title || args.name || 'Aanya Presentation';
+        const title = args.title || args.name || 'Avni Presentation';
         const slides = args.slides || [];
         const htmlContent = args.htmlContent || '';
         const theme = args.theme || 'cyberpunk';
@@ -712,7 +712,7 @@ export default function App() {
     }
 
     // ── NLP Preprocessing: classify intent, fetch RAG data & inject context into prompt ────
-    const { enhancedText, intent, isRetry } = await preprocessAsync(text || '', settings.assistantName || 'Aanya');
+    const { enhancedText, intent, isRetry } = await preprocessAsync(text || '', settings.assistantName || 'Avni');
 
     const userMessage = {
       id: `msg_${Date.now()}`,
@@ -840,8 +840,8 @@ export default function App() {
       const isPdfRequest = intent?.type === 'pdf' || /\bpdf\b/i.test(text);
       const hasPdfTool = tools.some(t => t.tool === 'generate_pdf' || t.tool === 'create_pdf');
       if (isPdfRequest && !hasPdfTool) {
-        console.log('[ANYA] Auto-triggering PDF generation fallback from response text...');
-        const pdfTitle = intent?.title || 'Aanya_Generated_Document';
+        console.log('[AVNI] Auto-triggering PDF generation fallback from response text...');
+        const pdfTitle = intent?.title || 'Avni_Generated_Document';
         const pdfContent = cleanText || rawReply;
         const pdfRes = await generatePDF(pdfTitle, pdfContent);
         toolWidgets.push({
@@ -879,7 +879,7 @@ export default function App() {
         speakOnDevice(cleanText || rawReply, settings);
       }
     } catch (err) {
-      console.error('[ANYA Error]:', err);
+      console.error('[AVNI Error]:', err);
       const errorMessage = {
         id: `msg_${Date.now() + 1}`,
         role: 'assistant',
@@ -950,9 +950,9 @@ export default function App() {
         if (final.trim()) {
           // Check wake word strip
           let cleanFinal = final.trim();
-          const currentName = (settings.assistantName || 'Aanya').trim();
+          const currentName = (settings.assistantName || 'Avni').trim();
           const escapedName = currentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const wakeWordRegex = new RegExp(`^(?:hey\\s+${escapedName}|${escapedName}|hey\\s+aanya|aanya|hey\\s+anya|anya|wake\\s+up)\\s*,?\\s*`, 'i');
+          const wakeWordRegex = new RegExp(`^(?:hey\\s+${escapedName}|${escapedName}|hey\\s+aavni|aavni|hey\\s+avni|avni|wake\\s+up)\\s*,?\\s*`, 'i');
           if (wakeWordRegex.test(cleanFinal)) {
             cleanFinal = cleanFinal.replace(wakeWordRegex, '');
           }
@@ -1104,7 +1104,7 @@ export default function App() {
               <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
             </div>
             <h3 className="text-sm font-bold tracking-wider uppercase text-white">
-              Loading ANYA...
+              Loading AVNI...
             </h3>
           </div>
         </div>
@@ -1191,7 +1191,7 @@ export default function App() {
               onToggleSpeechRecognition={handleToggleSpeech}
               interimTranscript={interimTranscript}
               disabled={isThinking}
-              assistantName={settings.assistantName || 'Aanya'}
+              assistantName={settings.assistantName || 'Avni'}
             />
 
             {/* Active Widgets Side/Bottom Panel */}
@@ -1235,7 +1235,7 @@ export default function App() {
           <CameraModal
             isOpen={isCameraOpen}
             onClose={() => setIsCameraOpen(false)}
-            assistantName={settings.assistantName || 'Aanya'}
+            assistantName={settings.assistantName || 'Avni'}
             onCapture={(imgData, livePrompt) => {
               const prompt = livePrompt || "Analyze this live camera view and describe what you observe or execute requested actions.";
               handleSendMessage(prompt, imgData);
@@ -1247,7 +1247,7 @@ export default function App() {
             <CallScreenerWidget
               callSession={activeTelephonyCalls[0]}
               onClose={() => setActiveTelephonyCalls([])}
-              assistantName={settings.assistantName || 'Aanya'}
+              assistantName={settings.assistantName || 'Avni'}
             />
           )}
     </div>

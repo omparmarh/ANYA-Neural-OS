@@ -8,12 +8,12 @@ import { supabase } from './supabase.js';
 
 // Storage keys for localStorage fallback
 const STORAGE_KEYS = {
-  LOCAL_CHATS: 'anya_local_chats',
-  SETTINGS: 'anya_settings',
-  NOTES: 'anya_quick_notes',
-  TASKS: 'anya_tasks',
-  ALARMS: 'anya_active_alarms',
-  TOKEN_USAGE: 'anya_token_usage'
+  LOCAL_CHATS: 'avni_local_chats',
+  SETTINGS: 'avni_settings',
+  NOTES: 'avni_quick_notes',
+  TASKS: 'avni_tasks',
+  ALARMS: 'avni_active_alarms',
+  TOKEN_USAGE: 'avni_token_usage'
 };
 
 const DEFAULT_SETTINGS = {
@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS = {
   freellmapiModel: 'auto',
   remoteUrl: 'http://127.0.0.1:8000',
   persona: 'sharp',
-  assistantName: 'Aanya',
+  assistantName: 'Avni',
   voiceEnabled: true,
   voiceProvider: 'browser',
   elevenLabsVoiceId: 'pNInz6obpgDQGcFmaJgB',

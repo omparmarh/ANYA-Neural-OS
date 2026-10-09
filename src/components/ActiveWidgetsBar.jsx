@@ -107,7 +107,7 @@ export default function ActiveWidgetsBar({
           <div>
             {timers.length === 0 ? (
               <div className="p-6 text-center text-xs text-slate-400">
-                No active timers. Ask ANYA: "set a 5 minute timer".
+                No active timers. Ask AVNI: "set a 5 minute timer".
               </div>
             ) : (
               timers.map(timer => (
@@ -127,7 +127,7 @@ export default function ActiveWidgetsBar({
           <div>
             {alarms.length === 0 ? (
               <div className="p-6 text-center text-xs text-slate-400">
-                No alarms scheduled. Ask ANYA: "set alarm for 7:30 AM".
+                No alarms scheduled. Ask AVNI: "set alarm for 7:30 AM".
               </div>
             ) : (
               alarms.map(alarm => (

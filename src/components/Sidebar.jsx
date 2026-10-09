@@ -61,7 +61,7 @@ export default function Sidebar({
                 backgroundClip: 'text',
               }}
             >
-              ANYA OS
+              AVNI OS
             </span>
           </div>
 

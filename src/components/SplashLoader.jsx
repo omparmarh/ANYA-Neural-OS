@@ -42,7 +42,7 @@ export default function SplashLoader({ onComplete }) {
 
         <div className="space-y-2">
           <h1 className="text-xl sm:text-2xl font-black tracking-widest text-white uppercase font-mono">
-            ANYA <span className="text-cyan-400">OS</span>
+            AVNI <span className="text-cyan-400">OS</span>
           </h1>
           <p className="text-xs font-mono text-slate-400 tracking-wider">
             BI-ARTIFICIAL NEURAL TERMINAL v2.0

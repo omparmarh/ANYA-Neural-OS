@@ -48,7 +48,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSaveSetting
       setFormData({ ...settings });
       checkFreeLLMStatus();
       try {
-        const stored = localStorage.getItem('anya_api_keys');
+        const stored = localStorage.getItem('avni_api_keys');
         if (stored) {
           setApiKeys({ ...apiKeys, ...JSON.parse(stored) });
         }
@@ -77,7 +77,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSaveSetting
 
   const handleSave = () => {
     // Save API Keys
-    localStorage.setItem('anya_api_keys', JSON.stringify(apiKeys));
+    localStorage.setItem('avni_api_keys', JSON.stringify(apiKeys));
     onSaveSettings(formData);
 
     // Sync keys to FreeLLMAPI daemon if in Electron
@@ -116,7 +116,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSaveSetting
           <div className="flex items-center gap-2.5">
             <Settings className="w-5 h-5 text-cyan-400" />
             <h3 className="text-sm font-bold tracking-wider uppercase text-white">
-              ANYA System Configuration
+              AVNI System Configuration
             </h3>
           </div>
           <button
@@ -380,7 +380,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSaveSetting
                   {pingStatus === 'success' && (
                     <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono">
                       <Check className="w-4 h-4" />
-                      <span>Connected to ANYA Daemon server successfully.</span>
+                      <span>Connected to AVNI Daemon server successfully.</span>
                     </div>
                   )}
                   {pingStatus === 'failed' && (
@@ -504,13 +504,13 @@ export default function SettingsModal({ isOpen, onClose, settings, onSaveSetting
                 </label>
                 <input
                   type="text"
-                  value={formData.assistantName ?? 'Aanya'}
+                  value={formData.assistantName ?? 'Avni'}
                   onChange={(e) => setFormData({ ...formData, assistantName: e.target.value })}
-                  placeholder="Aanya"
+                  placeholder="Avni"
                   className="w-full bg-obsidian-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Name the AI assistant identifies herself as (default: Aanya).
+                  Name the AI assistant identifies herself as (default: Avni).
                 </p>
               </div>
 
@@ -567,7 +567,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSaveSetting
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 bg-obsidian-950 border-t border-slate-800">
-          <span className="text-[11px] font-mono text-slate-400">ANYA v2.0-universal</span>
+          <span className="text-[11px] font-mono text-slate-400">AVNI v2.0-universal</span>
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}

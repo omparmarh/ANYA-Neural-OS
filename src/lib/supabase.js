@@ -179,15 +179,15 @@ export const resetPasswordForEmail = async (email) => {
  */
 
 export const isGuestMode = () => {
-  return localStorage.getItem('anya_guest_mode') !== 'false';
+  return localStorage.getItem('avni_guest_mode') !== 'false';
 };
 
 export const setGuestMode = (enabled = true) => {
-  localStorage.setItem('anya_guest_mode', enabled ? 'true' : 'false');
+  localStorage.setItem('avni_guest_mode', enabled ? 'true' : 'false');
 };
 
 export const getActiveUser = () => {
-  const customUser = localStorage.getItem('anya_user_profile');
+  const customUser = localStorage.getItem('avni_user_profile');
   if (customUser) {
     try {
       return JSON.parse(customUser);
@@ -195,7 +195,7 @@ export const getActiveUser = () => {
   }
   return {
     id: 'boss-001',
-    email: 'boss@anya.ai',
+    email: 'boss@avni.ai',
     name: 'Boss',
     role: 'Commander',
     mode: 'Executive Local Guest'
@@ -203,5 +203,5 @@ export const getActiveUser = () => {
 };
 
 export const saveUserProfile = (profile) => {
-  localStorage.setItem('anya_user_profile', JSON.stringify(profile));
+  localStorage.setItem('avni_user_profile', JSON.stringify(profile));
 };

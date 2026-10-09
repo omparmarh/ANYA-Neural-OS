@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Camera, X, RefreshCw, Check, Video, Mic, MicOff, Volume2, Sparkles } from 'lucide-react';
 import { triggerHaptic } from '../lib/neuralEngine';
 
-export default function CameraModal({ isOpen, onClose, onCapture, assistantName = 'Aanya' }) {
+export default function CameraModal({ isOpen, onClose, onCapture, assistantName = 'Avni' }) {
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [facingMode, setFacingMode] = useState('environment'); // 'user' or 'environment'
@@ -12,46 +12,46 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
   const [isListeningLive, setIsListeningLive] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
   const recognitionRef = useRef(null);
-  const isAnyaSpeakingRef = useRef(false);
+  const isAvniSpeakingRef = useRef(false);
   const onCaptureRef = useRef(onCapture);
 
   useEffect(() => {
     onCaptureRef.current = onCapture;
   }, [onCapture]);
 
-  // Manage auto-resume based on Aanya speech events
+  // Manage auto-resume based on Avni speech events
   useEffect(() => {
     const handleSpeechStarted = () => {
-      isAnyaSpeakingRef.current = true;
+      isAvniSpeakingRef.current = true;
       if (mode === 'live_chat' && isListeningLive) {
         stopLiveSpeech();
       }
     };
 
     const handleSpeechStopped = () => {
-      isAnyaSpeakingRef.current = false;
+      isAvniSpeakingRef.current = false;
       if (isOpen && mode === 'live_chat' && !isListeningLive) {
         setTimeout(() => {
-          if (isOpen && mode === 'live_chat' && !isAnyaSpeakingRef.current) {
+          if (isOpen && mode === 'live_chat' && !isAvniSpeakingRef.current) {
             startLiveSpeech();
           }
         }, 800);
       }
     };
 
-    window.addEventListener('anya-speech-started', handleSpeechStarted);
-    window.addEventListener('anya-speech-stopped', handleSpeechStopped);
+    window.addEventListener('avni-speech-started', handleSpeechStarted);
+    window.addEventListener('avni-speech-stopped', handleSpeechStopped);
 
     return () => {
-      window.removeEventListener('anya-speech-started', handleSpeechStarted);
-      window.removeEventListener('anya-speech-stopped', handleSpeechStopped);
+      window.removeEventListener('avni-speech-started', handleSpeechStarted);
+      window.removeEventListener('avni-speech-stopped', handleSpeechStopped);
     };
   }, [isOpen, mode, isListeningLive]);
 
   // Handle switching to live_chat mode automatically starting mic
   useEffect(() => {
     if (isOpen && mode === 'live_chat') {
-      if (!isListeningLive && !isAnyaSpeakingRef.current) {
+      if (!isListeningLive && !isAvniSpeakingRef.current) {
         startLiveSpeech();
       }
     } else {
@@ -344,7 +344,7 @@ export default function CameraModal({ isOpen, onClose, onCapture, assistantName 
               <button
                 onClick={triggerInstantVisionAnalysis}
                 className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold transition-all shadow-sm"
-                title="Ask Aanya to analyze current video frame"
+                title="Ask Avni to analyze current video frame"
               >
                 <Sparkles className="w-4 h-4" />
                 <span>Analyze Frame</span>

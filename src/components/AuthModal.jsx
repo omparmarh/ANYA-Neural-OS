@@ -238,7 +238,7 @@ export default function AuthModal({ isOpen, onClose }) {
         saveUserProfile(localUser);
         setGuestMode(true);
         setAuthState({ user: localUser, loading: false });
-        window.dispatchEvent(new CustomEvent('anya-auth-changed', { detail: localUser }));
+        window.dispatchEvent(new CustomEvent('avni-auth-changed', { detail: localUser }));
         setFormStatus({
           loading: false,
           error: null,
@@ -280,7 +280,7 @@ export default function AuthModal({ isOpen, onClose }) {
         saveUserProfile(localUser);
         setGuestMode(true);
         setAuthState({ user: localUser, loading: false });
-        window.dispatchEvent(new CustomEvent('anya-auth-changed', { detail: localUser }));
+        window.dispatchEvent(new CustomEvent('avni-auth-changed', { detail: localUser }));
         setFormStatus({
           loading: false,
           error: null,
@@ -313,7 +313,7 @@ export default function AuthModal({ isOpen, onClose }) {
         saveUserProfile(localUser);
         setGuestMode(true);
         setAuthState({ user: localUser, loading: false });
-        window.dispatchEvent(new CustomEvent('anya-auth-changed', { detail: localUser }));
+        window.dispatchEvent(new CustomEvent('avni-auth-changed', { detail: localUser }));
         setFormStatus({
           loading: false,
           error: null,
@@ -373,7 +373,7 @@ export default function AuthModal({ isOpen, onClose }) {
               <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
             </div>
             <h3 className="text-sm font-bold tracking-wider uppercase text-white">
-              Loading ANYA...
+              Loading AVNI...
             </h3>
           </div>
         </div>
@@ -405,8 +405,8 @@ export default function AuthModal({ isOpen, onClose }) {
               <Check className="w-5 h-5 text-cyan-400" />
             )}
             <h3 className="text-sm font-bold tracking-wider uppercase text-white">
-              {formState.step === 'login' && 'Sign into ANYA'}
-              {formState.step === 'signup' && 'Create ANYA Account'}
+              {formState.step === 'login' && 'Sign into AVNI'}
+              {formState.step === 'signup' && 'Create AVNI Account'}
               {formState.step === 'magiclink' && 'Sign in with Magic Link'}
               {formState.step === 'verify' && 'Verify Your Account'}
             </h3>
@@ -726,7 +726,7 @@ export default function AuthModal({ isOpen, onClose }) {
             )}
           </div>
           <span className="text-[10px] text-slate-500">
-            ANYA v2.0 • Secure Authentication
+            AVNI v2.0 • Secure Authentication
           </span>
         </div>
       </div>

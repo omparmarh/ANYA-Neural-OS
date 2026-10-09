@@ -1,5 +1,5 @@
 /**
- * ANYA TELEPHONY CALL MANAGER
+ * AVNI TELEPHONY CALL MANAGER
  * Manages active incoming calls, live transcripts, AI summaries, and call control events.
  */
 
@@ -10,7 +10,7 @@ export interface CallSession {
   state: 'RINGING' | 'SCREENING' | 'TAKEOVER' | 'COMPLETED' | 'HANGUP';
   startTime: number;
   duration: number;
-  transcript: Array<{ speaker: 'Aanya' | 'Caller'; text: string; timestamp: string }>;
+  transcript: Array<{ speaker: 'Avni' | 'Caller'; text: string; timestamp: string }>;
   summary: string;
   instructions: string[];
 }
@@ -44,11 +44,11 @@ class CallManager {
       startTime: Date.now(),
       duration: 0,
       transcript: [],
-      summary: 'Aanya is establishing call screening...',
+      summary: 'Avni is establishing call screening...',
       instructions: [],
     };
     this.activeCalls.set(callSid, session);
-    this.broadcast('anya-call-started', session);
+    this.broadcast('avni-call-started', session);
     return session;
   }
 
@@ -60,7 +60,7 @@ class CallManager {
     return Array.from(this.activeCalls.values()).filter(c => c.state !== 'COMPLETED' && c.state !== 'HANGUP');
   }
 
-  public appendTranscript(callSid: string, speaker: 'Aanya' | 'Caller', text: string) {
+  public appendTranscript(callSid: string, speaker: 'Avni' | 'Caller', text: string) {
     const session = this.activeCalls.get(callSid);
     if (!session) return;
 
@@ -76,7 +76,7 @@ class CallManager {
       }
     }
 
-    this.broadcast('anya-call-transcript', {
+    this.broadcast('avni-call-transcript', {
       callSid,
       speaker,
       text,
@@ -90,15 +90,15 @@ class CallManager {
     const session = this.activeCalls.get(callSid);
     if (!session) return;
     session.state = state;
-    this.broadcast('anya-call-state-changed', { callSid, state });
+    this.broadcast('avni-call-state-changed', { callSid, state });
   }
 
   public addInstruction(callSid: string, instruction: string) {
     const session = this.activeCalls.get(callSid);
     if (!session) return;
     session.instructions.push(instruction);
-    this.appendTranscript(callSid, 'Aanya', `[Direct Instruction from User]: "${instruction}"`);
-    this.broadcast('anya-call-instruction', { callSid, instruction });
+    this.appendTranscript(callSid, 'Avni', `[Direct Instruction from User]: "${instruction}"`);
+    this.broadcast('avni-call-instruction', { callSid, instruction });
   }
 
   public endSession(callSid: string, reason: string = 'completed') {
@@ -107,7 +107,7 @@ class CallManager {
 
     session.state = 'COMPLETED';
     session.duration = Math.round((Date.now() - session.startTime) / 1000);
-    this.broadcast('anya-call-ended', { callSid, duration: session.duration, reason });
+    this.broadcast('avni-call-ended', { callSid, duration: session.duration, reason });
     
     setTimeout(() => {
       this.activeCalls.delete(callSid);
