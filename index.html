@@ -6,22 +6,55 @@
     <meta name="theme-color" content="#05070c" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="description" content="AVNI - Autonomous Next-Gen Intelligent Assistant. High-performance cross-platform AI operating agent with native device controls, timers, alarms, and multi-model failover." />
+    <meta name="description" content="AVNI - Autonomous Voice Neural Interface. High-performance cross-platform AI operating agent with native device controls, timers, alarms, and multi-model failover." />
     <title>AVNI · Neural AI Operating Assistant</title>
     
     <!-- AVNI Logo Favicon -->
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/avni-logo.png" />
-    <link rel="shortcut icon" href="/favicon.png" />
-
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./avni-logo.png" />
+    <link rel="shortcut icon" href="./favicon.png" />
 
     <!-- Google Fonts: Inter & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Inline shell: prevents white flash while JS bundle parses -->
+    <style>
+      html, body { margin: 0; padding: 0; background: #030508; overflow: hidden; }
+      #root-loader {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; align-items: center; justify-content: center;
+        background: #030508;
+        font-family: 'JetBrains Mono', monospace;
+        color: #22d3ee;
+        font-size: 0.75rem;
+        letter-spacing: 0.2em;
+        transition: opacity 0.4s ease;
+      }
+      #root-loader.hide { opacity: 0; pointer-events: none; }
+      #root-loader span {
+        animation: blink 1.2s step-end infinite;
+      }
+      @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    </style>
   </head>
   <body class="bg-[#05070c] text-slate-100 antialiased selection:bg-cyan-500/25 selection:text-cyan-200 overflow-hidden">
+    <!-- Inline loader shown until React mounts -->
+    <div id="root-loader"><span>AVNI NEURAL OS · LOADING…</span></div>
+
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="./src/main.jsx"></script>
+    <script>
+      // Hide the inline loader once React root mounts
+      const obs = new MutationObserver(() => {
+        if (document.getElementById('root')?.children?.length) {
+          const loader = document.getElementById('root-loader');
+          if (loader) { loader.classList.add('hide'); setTimeout(() => loader.remove(), 500); }
+          obs.disconnect();
+        }
+      });
+      obs.observe(document.getElementById('root'), { childList: true });
+    </script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
@@ -11,7 +11,13 @@ import CallScreenerWidget from './components/CallScreenerWidget';
 import AuthModal from './components/AuthModal';
 import SplashLoader from './components/SplashLoader';
 import StartupBootScreen from './components/StartupBootScreen';
+import Ignition from './components/Ignition';
+import Boot from './components/Boot';
+import Scene from './scene/Scene';
+import Hud from './components/Hud';
 import { Loader2 } from 'lucide-react';
+import { useStore, Phase } from './store';
+import { resumeAudio } from './lib/sfx';
 import {
   getChats, createChat, updateChat, deleteChat,
   getMessages, addMessage, updateMessage, deleteMessage,
@@ -37,6 +43,20 @@ import { supabase, onAuthStateChange } from './lib/supabase.js';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+
+  // ── One-time migration: rename any old "Anya" assistantName to "Avni" ──
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('avni_settings');
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s.assistantName && /anya/i.test(s.assistantName)) {
+          s.assistantName = 'Avni';
+          localStorage.setItem('avni_settings', JSON.stringify(s));
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
   // Global State
   const [settings, setSettings] = useState({});
   const [threads, setThreads] = useState([]);
@@ -57,6 +77,25 @@ export default function App() {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [showWidgetsTray, setShowWidgetsTray] = useState(false);
+
+  // Live mode state (synced with store)
+  const liveMode = useStore((s) => s.liveMode);
+  const setLiveMode = useStore((s) => s.setLiveMode);
+  const phase = useStore((s) => s.phase);
+  const setPhase = useStore((s) => s.setPhase);
+  const accent = useStore((s) => s.accent);
+  const storeIsListening = useStore((s) => s.isListening);
+  const setStoreIsListening = useStore((s) => s.setIsListening);
+  const storeIsSpeaking = useStore((s) => s.isSpeaking);
+  const setStoreIsSpeaking = useStore((s) => s.setIsSpeaking);
+  const setStoreInterimTranscript = useStore((s) => s.setInterimTranscript);
+  const setMicLevel = useStore((s) => s.setMicLevel);
+  const setSpeakerLevel = useStore((s) => s.setSpeakerLevel);
+  const setIsThinkingStore = useStore((s) => s.setIsThinking);
+  const setTooling = useStore((s) => s.setTooling);
+  const pushEffect = useStore((s) => s.pushEffect);
+  const appendMessage = useStore((s) => s.appendMessage);
+  const reducedMotion = useStore((s) => s.reducedMotion);
 
   // Active Widgets Data
   const [activeTelephonyCalls, setActiveTelephonyCalls] = useState([]);
@@ -105,6 +144,63 @@ export default function App() {
     };
   }, [settings.remoteUrl]);
 
+  // Spacebar handler for live mode
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore if typing in an input field
+      const target = e.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target.isContentEditable) {
+        return;
+      }
+
+      if (e.code !== 'Space' || e.repeat) return;
+
+      e.preventDefault();
+
+      const currentPhase = phase;
+
+      if (currentPhase === Phase.OFFLINE) {
+        // Power on from offline
+        resumeAudio();
+        setPhase(Phase.BOOT);
+      } else if (currentPhase === Phase.BOOT) {
+        // Ignore during boot
+        return;
+      } else if (currentPhase === Phase.THINKING || currentPhase === Phase.TOOLING || currentPhase === Phase.SPEAKING) {
+        // Barge-in: stop current, start listening
+        stopSpeaking();
+        setPhase(Phase.LISTENING);
+        setStoreIsListening(true);
+        // The existing handleToggleSpeech will be called by the voice flow
+      } else {
+        // Wake: go to WAKING then LISTENING
+        setPhase(Phase.WAKING);
+        // Brief delay then start listening
+        setTimeout(() => {
+          setPhase(Phase.LISTENING);
+          setStoreIsListening(true);
+        }, 300);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [phase, setPhase, setStoreIsListening]);
+
+  // Reduced motion detection
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handleChange = (e) => {
+      useStore.getState().setReducedMotion?.(e.matches);
+    };
+
+    // Set initial value
+    useStore.getState().setReducedMotion?.(mediaQuery.matches);
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
   const [timers, setTimers] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('avni_active_timers') || '[]');
@@ -144,8 +240,12 @@ export default function App() {
     const checkAuth = async () => {
       setIsAuthLoading(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user;
+        // Race against a 5-second timeout so a slow/offline Supabase doesn't block the UI
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('auth-timeout')), 5000)),
+        ]);
+        const user = sessionResult?.data?.session?.user;
         if (user) {
           setIsAuthenticated(true);
           setCurrentUser({
@@ -177,9 +277,15 @@ export default function App() {
         // Load initial data
         await loadInitialData();
       } catch (error) {
-        console.error('Auth check error:', error);
+        console.warn('Auth check error (falling back to guest):', error?.message || error);
         setIsAuthenticated(false);
         setCurrentUser(null);
+        // Don't show auth modal on timeout — let guest use the app
+        if (error?.message !== 'auth-timeout') {
+          setShowAuthModal(true);
+        }
+        // Still load local data
+        try { await loadInitialData(); } catch {}
       } finally {
         setIsAuthLoading(false);
       }
@@ -389,8 +495,18 @@ export default function App() {
 
   // Listen to speech audio events & tokens
   useEffect(() => {
-    const handleSpeechStart = () => setIsSpeaking(true);
-    const handleSpeechStop = () => setIsSpeaking(false);
+    const handleSpeechStart = () => {
+      setIsSpeaking(true);
+      setStoreIsSpeaking(true);
+      setPhase(Phase.SPEAKING);
+    };
+    const handleSpeechStop = () => {
+      setIsSpeaking(false);
+      setStoreIsSpeaking(false);
+      if (phase !== Phase.LISTENING && phase !== Phase.THINKING && phase !== Phase.TOOLING) {
+        setPhase(Phase.DORMANT);
+      }
+    };
     const handleTokensUpdate = (e) => setTokenUsage(e.detail);
     const handleOpenCamera = () => setIsCameraOpen(true);
 
@@ -405,7 +521,7 @@ export default function App() {
       window.removeEventListener('avni-tokens-updated', handleTokensUpdate);
       window.removeEventListener('avni-open-camera', handleOpenCamera);
     };
-  }, []);
+  }, [phase]);
 
   // Background Timers & Alarms Engine (1 second tick)
   useEffect(() => {
@@ -809,6 +925,8 @@ export default function App() {
     // ── END SILENT ACTION FAST PATH ───────────────────────────────────────────
 
     setIsThinking(true);
+    setIsThinkingStore(true);
+    setPhase(Phase.THINKING);
 
     try {
       let rawReply = '';
@@ -876,6 +994,8 @@ export default function App() {
 
       // Speak response if voice enabled
       if (settings.voiceEnabled) {
+        setStoreIsSpeaking(true);
+        setPhase(Phase.SPEAKING);
         speakOnDevice(cleanText || rawReply, settings);
       }
     } catch (err) {
@@ -899,6 +1019,9 @@ export default function App() {
       }));
     } finally {
       setIsThinking(false);
+      setIsThinkingStore(false);
+      setStoreIsSpeaking(false);
+      setPhase(Phase.DORMANT);
     }
   };
 
@@ -910,12 +1033,15 @@ export default function App() {
       return;
     }
 
-    if (isListening) {
+    if (isListening || storeIsListening) {
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch {}
       }
       setIsListening(false);
+      setStoreIsListening(false);
       setInterimTranscript('');
+      setStoreIsListening(false);
+      setPhase(Phase.DORMANT);
       return;
     }
 
@@ -930,6 +1056,8 @@ export default function App() {
 
       recognition.onstart = () => {
         setIsListening(true);
+        setStoreIsListening(true);
+        setPhase(Phase.LISTENING);
         triggerHaptic(40);
       };
 
@@ -966,12 +1094,17 @@ export default function App() {
       recognition.onerror = (e) => {
         console.warn('Speech recognition error:', e.error);
         setIsListening(false);
+        setStoreIsListening(false);
         setInterimTranscript('');
+        setStoreInterimTranscript('');
+        setPhase(Phase.DORMANT);
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        setStoreIsListening(false);
         setInterimTranscript('');
+        setStoreInterimTranscript('');
         recognitionRef.current = null;
       };
 
@@ -1092,7 +1225,11 @@ export default function App() {
   const activeUser = currentUser || getActiveUser() || { name: 'Boss', role: 'Commander' };
 
   if (showSplash) {
-    return <StartupBootScreen onComplete={() => setShowSplash(false)} />;
+    return (
+      <>
+        <StartupBootScreen onComplete={() => setShowSplash(false)} />
+      </>
+    );
   }
 
   if (isAuthLoading) {
@@ -1118,6 +1255,20 @@ export default function App() {
       className="flex h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-screen overflow-hidden text-slate-100"
       style={{ background: 'var(--surface-0)', fontFamily: 'var(--font-sans)' }}
     >
+      {/* 3D Scene - rendered behind everything (deferred after splash) */}
+      <Suspense fallback={null}>
+        <Scene />
+      </Suspense>
+
+      {/* HUD Chrome - always rendered on top of scene */}
+      <Hud />
+
+      {/* Ignition gate - shown only when OFFLINE */}
+      <Ignition />
+
+      {/* Boot animation - shown only when BOOT */}
+      <Boot />
+
       {/* Auth Modal */}
       {showAuthModal && (
         <AuthModal
@@ -1127,7 +1278,9 @@ export default function App() {
       )}
 
       {/* Main Workspace Area */}
-      <Sidebar
+      {!liveMode && (
+        <>
+          <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         threads={threads}
@@ -1149,6 +1302,71 @@ export default function App() {
 
       {/* Main Workspace Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Live Mode Toggle Button - fixed bottom-left */}
+        <button
+          className="live-mode-btn"
+          onClick={() => setLiveMode(!liveMode)}
+          aria-label={liveMode ? 'Exit live mode' : 'Enter live mode'}
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: 24,
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 14px',
+            background: 'rgba(10,14,26,0.85)',
+            backdropFilter: 'blur(20px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+            border: `1px solid ${liveMode ? accent : 'rgba(255,255,255,0.1)'}`,
+            borderRadius: '12px',
+            color: liveMode ? accent : 'rgba(148,163,184,0.8)',
+            fontSize: '0.65rem',
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 600,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: liveMode ? `0 0 24px ${accent}33, inset 0 1px 0 rgba(255,255,255,0.05)` : '0 4px 16px rgba(0,0,0,0.3)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = liveMode ? accent : accent;
+            e.currentTarget.style.color = accent;
+            e.currentTarget.style.boxShadow = `0 0 24px ${accent}44, inset 0 1px 0 rgba(255,255,255,0.06)`;
+            e.currentTarget.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = liveMode ? accent : 'rgba(255,255,255,0.1)';
+            e.currentTarget.style.color = liveMode ? accent : 'rgba(148,163,184,0.8)';
+            e.currentTarget.style.boxShadow = liveMode ? `0 0 24px ${accent}33, inset 0 1px 0 rgba(255,255,255,0.05)` : '0 4px 16px rgba(0,0,0,0.3)';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.transform = 'scale(0.97)';
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.transform = 'translateY(-1px)';
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {liveMode ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="2" />
+                <path d="M8 12h8" />
+                <path d="M12 8v8" />
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v6l4 2" />
+              </svg>
+            )}
+          </span>
+          <span>{liveMode ? 'LIVE' : 'CHAT'}</span>
+        </button>
+
         {/* Top Header */}
         <Header
           settings={settings}
@@ -1250,6 +1468,34 @@ export default function App() {
               assistantName={settings.assistantName || 'Avni'}
             />
           )}
+        </>
+      )}
+
+      {liveMode && (
+        <div className="live-mode-view" style={{ position: 'relative', width: '100%', height: '100%' }}>
+          {/* Live mode is just the 3D ball + HUD - no additional UI needed */}
+          <div className="live-mode-hint" style={{
+            position: 'absolute',
+            bottom: 32,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '12px 24px',
+            background: 'rgba(10,14,26,0.9)',
+            backdropFilter: 'blur(20px) saturate(180%)',
+            border: `1px solid ${accent}44`,
+            borderRadius: '999px',
+            color: 'rgba(148,163,184,0.7)',
+            fontSize: '0.7rem',
+            fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.1em',
+            pointerEvents: 'none',
+            zIndex: 20,
+          }}>
+            say "hey avni" · Space to talk · G hands · V voice
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

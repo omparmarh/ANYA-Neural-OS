@@ -492,7 +492,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSaveSetting
                   className="w-full bg-obsidian-950 border border-slate-700 rounded-lg px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
                 >
                   <option value="sharp">Sharp & Authoritative ("Boss")</option>
-                  <option value="jarvis">Cybernetic Executive Jarvis</option>
+                  <option value="jarvis">Neural Executive (Precise &amp; Formal)</option>
                   <option value="casual">Casual Intelligent Tech Companion</option>
                   <option value="concise">Concise & Minimalist</option>
                 </select>
