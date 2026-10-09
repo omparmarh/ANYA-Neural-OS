@@ -1,3 +1,4 @@
+import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore, Phase } from '../store';
 

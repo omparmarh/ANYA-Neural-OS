@@ -1,8 +1,60 @@
-import { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { EffectComposer, Bloom, Noise, Vignette } from '@react-three/postprocessing';
 import { useStore, Phase } from '../store';
 import { Core } from './Core';
+
+// Check if WebGL context can be created
+function isWebGLAvailable() {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(
+      window.WebGLRenderingContext &&
+      (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Resilient fallback when WebGL is unavailable or fails
+function CSSReactorFallback({ colour = '#22d3ee' }) {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+      <div
+        className="w-96 h-96 rounded-full animate-pulse blur-3xl opacity-30 transition-all duration-700"
+        style={{ background: `radial-gradient(circle, ${colour} 0%, transparent 70%)` }}
+      />
+      <div
+        className="w-64 h-64 rounded-full border border-cyan-500/20 animate-spin opacity-20 absolute"
+        style={{ animationDuration: '20s' }}
+      />
+    </div>
+  );
+}
+
+// ErrorBoundary to catch any Three.js or WebGL runtime crash
+class SceneErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(err) {
+    console.warn('3D Scene WebGL fallback engaged:', err);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <CSSReactorFallback colour={this.props.colour} />;
+    }
+    return this.props.children;
+  }
+}
 
 // Dust shell — 1200 points drifting around the reactor.
 export function Particles({ count = 1200, radius = 2.6 }) {
@@ -38,6 +90,12 @@ export default function Scene() {
   const isListening = useStore((s) => s.isListening);
   const isSpeaking = useStore((s) => s.isSpeaking);
 
+  const [hasWebGL, setHasWebGL] = useState(true);
+
+  useEffect(() => {
+    setHasWebGL(isWebGLAvailable());
+  }, []);
+
   const style = {
     [Phase.OFFLINE]:    { spin: 0.06, open: 0.22, colour: '#1e293b', amp: 0.02 },
     [Phase.BOOT]:       { spin: 3.4,  open: 0.72, colour: accent,    amp: 0.10 },
@@ -51,34 +109,39 @@ export default function Scene() {
 
   const level = isListening ? micLevel : (isSpeaking ? speakerLevel : 0);
 
+  if (!hasWebGL) {
+    return <CSSReactorFallback colour={style.colour} />;
+  }
+
   return (
     <div className="scene" style={{ position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none' }}>
-      <Canvas
-        camera={{ position: [0, 0, 5.5], fov: 45 }}
-        gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
-        dpr={[1, 2]}
-        style={{ background: 'transparent' }}
-        onCreated={({ gl }) => {
-          // Fully transparent background so the CSS surface shows through
-          gl.setClearColor(0x000000, 0);
-        }}
-      >
-        <Core
-          spin={style.spin}
-          open={style.open}
-          colour={style.colour}
-          level={level}
-          amp={style.amp}
-        />
+      <SceneErrorBoundary colour={style.colour}>
+        <Canvas
+          camera={{ position: [0, 0, 5.5], fov: 45 }}
+          gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
+          dpr={[1, 2]}
+          style={{ background: 'transparent' }}
+          onCreated={({ gl }) => {
+            gl.setClearColor(0x000000, 0);
+          }}
+        >
+          <Core
+            spin={style.spin}
+            open={style.open}
+            colour={style.colour}
+            level={level}
+            amp={style.amp}
+          />
 
-        <Particles />
+          <Particles />
 
-        <EffectComposer>
-          <Bloom luminanceThreshold={0.15} luminanceSmoothing={0.4} intensity={1.15} radius={0.5} />
-          <Noise opacity={0.05} />
-          <Vignette offset={0.3} darkness={0.6} />
-        </EffectComposer>
-      </Canvas>
+          <EffectComposer>
+            <Bloom luminanceThreshold={0.15} luminanceSmoothing={0.4} intensity={1.15} radius={0.5} />
+            <Noise opacity={0.05} />
+            <Vignette offset={0.3} darkness={0.6} />
+          </EffectComposer>
+        </Canvas>
+      </SceneErrorBoundary>
     </div>
   );
 }

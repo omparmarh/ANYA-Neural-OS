@@ -23,23 +23,20 @@
       *, *::before, *::after { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; background: #030508; overflow: hidden; }
 
-      /* Loader fades OUT via CSS after 3.5s — no JS dependency */
+      /* Loader stays until React mounts, then smoothly fades out */
       #root-loader {
         position: fixed; inset: 0; z-index: 9999;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center; gap: 16px;
         background: #030508;
-        /* Auto-fade after 3.5s even if React never mounts */
-        animation: loaderFade 0.6s ease 3.5s forwards;
-        pointer-events: none;
+        transition: opacity 0.4s ease, visibility 0.4s ease;
       }
-      @keyframes loaderFade { to { opacity: 0; visibility: hidden; } }
 
-      /* JS can hide it early by adding .hide */
+      /* JS hides it the moment React mounts */
       #root-loader.hide {
         opacity: 0 !important;
-        animation: none !important;
         visibility: hidden !important;
+        pointer-events: none !important;
       }
 
       .rl-ring {
@@ -58,30 +55,72 @@
         color: rgba(34,211,238,0.7);
         text-transform: uppercase;
       }
+
+      #root-fallback-action {
+        display: none;
+        margin-top: 12px;
+        padding: 6px 14px;
+        background: rgba(34,211,238,0.15);
+        border: 1px solid rgba(34,211,238,0.4);
+        color: #22d3ee;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.7rem;
+        border-radius: 8px;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
-    <!-- Pure CSS shell loader — hides via animation even if JS fails -->
+    <!-- Initial shell loader -->
     <div id="root-loader">
       <div class="rl-ring"></div>
-      <div class="rl-text">AVNI NEURAL OS</div>
+      <div class="rl-text" id="rl-status">AVNI NEURAL OS</div>
+      <button id="root-fallback-action" onclick="window.location.reload()">RELOAD CORE</button>
     </div>
 
     <div id="root"></div>
 
-    <!-- Hide loader the moment React adds anything to #root -->
     <script>
-      try {
-        var _obs = new MutationObserver(function() {
+      (function() {
+        var loader = document.getElementById('root-loader');
+        var status = document.getElementById('rl-status');
+        var btn = document.getElementById('root-fallback-action');
+
+        function hideLoader() {
+          if (loader) loader.classList.add('hide');
+        }
+
+        // Hide when React renders into root
+        try {
+          var obs = new MutationObserver(function() {
+            var r = document.getElementById('root');
+            if (r && r.children.length > 0) {
+              hideLoader();
+              obs.disconnect();
+            }
+          });
+          obs.observe(document.getElementById('root'), { childList: true, subtree: true });
+        } catch(e) {}
+
+        // Global fallback if bundle takes > 12s
+        setTimeout(function() {
           var r = document.getElementById('root');
-          if (r && r.firstChild) {
-            var l = document.getElementById('root-loader');
-            if (l) l.classList.add('hide');
-            _obs.disconnect();
+          if (!r || r.children.length === 0) {
+            if (status) status.textContent = 'INITIALIZATION TIMEOUT';
+            if (btn) btn.style.display = 'block';
+          }
+        }, 12000);
+
+        // Catch uncaught JS errors and display
+        window.addEventListener('error', function(e) {
+          console.error('Core startup error:', e.error || e.message);
+          var r = document.getElementById('root');
+          if (!r || r.children.length === 0) {
+            if (status) status.textContent = 'SYSTEM LOAD ERROR';
+            if (btn) btn.style.display = 'block';
           }
         });
-        _obs.observe(document.getElementById('root'), { childList: true, subtree: true });
-      } catch(e) {}
+      })();
     </script>
 
     <script type="module" src="./src/main.jsx"></script>
