@@ -11,10 +11,11 @@ import CallScreenerWidget from './components/CallScreenerWidget';
 import AuthModal from './components/AuthModal';
 import SplashLoader from './components/SplashLoader';
 import StartupBootScreen from './components/StartupBootScreen';
-import Ignition from './components/Ignition';
-import Boot from './components/Boot';
+import { Boot } from './ui/Boot';
 import Scene from './scene/Scene';
-import Hud from './components/Hud';
+import { Hud } from './ui/Hud';
+import { Diagnostics } from './ui/Diagnostics';
+import './jarvis-live.css';
 import { Loader2 } from 'lucide-react';
 import { useStore, Phase } from './store';
 import { resumeAudio } from './lib/sfx';
@@ -1025,25 +1026,10 @@ export default function App() {
     }
   };
 
-  // Speech Recognition Mic Toggle
-  const handleToggleSpeech = () => {
+  // Start active speech recognition listening in Live Mode
+  const startSpeechListening = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('Web Speech Recognition API is not supported in this browser.');
-      return;
-    }
-
-    if (isListening || storeIsListening) {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch {}
-      }
-      setIsListening(false);
-      setStoreIsListening(false);
-      setInterimTranscript('');
-      setStoreIsListening(false);
-      setPhase(Phase.DORMANT);
-      return;
-    }
+    if (!SpeechRecognition) return;
 
     try {
       if (recognitionRef.current) {
@@ -1076,7 +1062,6 @@ export default function App() {
         setInterimTranscript(interim);
 
         if (final.trim()) {
-          // Check wake word strip
           let cleanFinal = final.trim();
           const currentName = (settings.assistantName || 'Avni').trim();
           const escapedName = currentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1092,34 +1077,75 @@ export default function App() {
       };
 
       recognition.onerror = (e) => {
-        console.warn('Speech recognition error:', e.error);
-        setIsListening(false);
-        setStoreIsListening(false);
-        setInterimTranscript('');
-        setStoreInterimTranscript('');
-        setPhase(Phase.DORMANT);
+        console.warn('Speech recognition status:', e.error);
+        if (e.error !== 'no-speech') {
+          setIsListening(false);
+          setStoreIsListening(false);
+        }
       };
 
       recognition.onend = () => {
-        setIsListening(false);
-        setStoreIsListening(false);
-        setInterimTranscript('');
-        setStoreInterimTranscript('');
-        recognitionRef.current = null;
+        const cur = useStore.getState();
+        if (cur.liveMode && cur.phase !== Phase.SPEAKING && cur.phase !== Phase.THINKING) {
+          try { recognition.start(); } catch {}
+        } else {
+          setIsListening(false);
+          setStoreIsListening(false);
+        }
       };
 
       recognitionRef.current = recognition;
-      try {
-        recognition.start();
-      } catch (err) {
-        console.warn('Speech recognition start failed:', err);
-        setIsListening(false);
-      }
+      recognition.start();
     } catch (e) {
-      console.error('Failed to start speech recognition:', e);
-      setIsListening(false);
+      console.warn('Speech recognition init failed:', e);
     }
   };
+
+  // Enter Live Mode — triggers the 1-to-1 Jarvis 2.0 boot animation
+  const handleEnterLiveMode = () => {
+    setLiveMode(true);
+    setPhase(Phase.BOOT);
+  };
+
+  // Exit Live Mode — returns cleanly to standard workspace
+  const handleExitLiveMode = () => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+    }
+    setIsListening(false);
+    setStoreIsListening(false);
+    setInterimTranscript('');
+    setLiveMode(false);
+    setPhase(Phase.OFFLINE);
+  };
+
+  // Speech Recognition Mic Toggle
+  const handleToggleSpeech = () => {
+    if (liveMode) {
+      handleExitLiveMode();
+    } else {
+      handleEnterLiveMode();
+    }
+  };
+
+  useEffect(() => {
+    document.body.classList.toggle('live-active', liveMode);
+    return () => {
+      document.body.classList.remove('live-active');
+    };
+  }, [liveMode]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape' && liveMode) {
+        handleExitLiveMode();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [liveMode]);
+
+
 
   // Timer Handlers
   const handleToggleTimerPause = (id) => {
@@ -1241,22 +1267,20 @@ export default function App() {
       className="flex h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-screen overflow-hidden text-slate-100"
       style={{ background: 'var(--surface-0)', fontFamily: 'var(--font-sans)' }}
     >
-      {/* 3D Scene - rendered behind everything (deferred after splash) */}
-      <Suspense fallback={null}>
-        <Scene />
-      </Suspense>
+      {/* Live Mode Interface — 1-to-1 exact Jarvis 2.0 interface */}
+      {liveMode && (
+        <div className="fixed inset-0 z-50 bg-[#01060c] overflow-hidden" style={{ zIndex: 100 }}>
+          <Suspense fallback={null}>
+            <Scene />
+          </Suspense>
+          <Hud onExit={handleExitLiveMode} />
+          <Boot />
+          <Diagnostics />
+        </div>
+      )}
 
-      {/* HUD Chrome - always rendered on top of scene */}
-      <Hud />
-
-      {/* Ignition gate - shown only when OFFLINE */}
-      <Ignition />
-
-      {/* Boot animation - shown only when BOOT */}
-      <Boot />
-
-      {/* Auth Modal */}
-      {showAuthModal && (
+      {/* Auth Modal — suppressed during live mode */}
+      {showAuthModal && !liveMode && (
         <AuthModal
           isOpen={showAuthModal}
           onClose={handleAuthClose}
@@ -1291,7 +1315,7 @@ export default function App() {
         {/* Live Mode Toggle Button - fixed bottom-left */}
         <button
           className="live-mode-btn"
-          onClick={() => setLiveMode(!liveMode)}
+          onClick={() => (liveMode ? handleExitLiveMode() : handleEnterLiveMode())}
           aria-label={liveMode ? 'Exit live mode' : 'Enter live mode'}
           style={{
             position: 'fixed',

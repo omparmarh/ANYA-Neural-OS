@@ -632,67 +632,164 @@ textarea:focus { outline: none; }
   transform: scale(0.97);
 }
 
-/* ─── Boot Animation ───────────────────────────────────────── */
-.boot-overlay {
+/* ─── Boot Animation (1-to-1 from Jarvis 2.0) ─────────────────── */
+.boot {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: var(--surface-0);
+  background: var(--surface-0, #030508);
+  color: var(--accent, #22d3ee);
+  overflow: hidden;
 }
 
-.boot-beat {
-  display: flex;
-  flex-direction: column;
+/* -- beat 1: the status bar -------------------------------------------- */
+
+.boot-bar {
+  position: absolute;
+  top: 12%;
+  left: 0;
+  right: 0;
+  padding: 0 min(9vw, 140px);
+  transition: opacity 0.6s ease, filter 0.6s ease;
+}
+.boot-bar-dim { opacity: 0.28; filter: blur(0.6px); }
+
+.boot-bar-frame {
+  position: relative;
+  border-top: 1.5px solid var(--accent, #22d3ee);
+  border-bottom: 1.5px solid var(--accent, #22d3ee);
+  padding: 14px 26px 12px;
+  clip-path: polygon(3% 0, 97% 0, 100% 42%, 97% 100%, 3% 100%, 0 42%);
+  box-shadow:
+    inset 0 0 40px rgba(34, 211, 238, 0.12),
+    0 0 30px rgba(34, 211, 238, 0.18);
+}
+
+.boot-bar-title {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(18px, 3.4vw, 40px);
+  font-weight: 300;
+  letter-spacing: 0.14em;
+  color: #eafcff;
+  text-shadow: 0 0 26px rgba(34, 211, 238, 0.6);
 }
-
-.progress-bar {
-  width: clamp(280px, 50vw, 520px);
+.boot-dots { opacity: 0.6; margin: 0 0.2em; }
+.boot-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.05em;
+  margin-left: 0.15em;
+  background: var(--accent, #22d3ee);
+  animation: bootBlink 0.7s steps(1) infinite;
 }
+@keyframes bootBlink { 50% { opacity: 0 } }
 
-.progress-cell {
-  height: 8px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
-  transform-origin: left center;
-  transition: background-color 0.15s ease;
+.boot-seg { display: flex; gap: 3px; margin-top: 12px; }
+.boot-seg-cell {
+  flex: 1;
+  height: 12px;
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+.boot-seg-cell[data-on='1'] {
+  background: var(--accent, #22d3ee);
+  box-shadow: 0 0 10px var(--accent, #22d3ee);
 }
 
 .boot-log {
-  width: clamp(280px, 50vw, 520px);
-  max-height: 200px;
-  overflow: hidden;
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  line-height: 1.6;
-  color: rgba(148, 163, 184, 0.85);
+  margin-top: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  line-height: 1.9;
+  letter-spacing: 0.06em;
+  opacity: 0.6;
+}
+.boot-log-line { animation: bootLogIn 0.25s ease both; }
+.boot-log-line::before { content: '\203a  '; opacity: 0.5; }
+@keyframes bootLogIn { from { opacity: 0; transform: translateX(-8px) } }
+
+/* -- beats 2-4: the centre stage --------------------------------------- */
+
+.boot-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.boot-rings,
+.boot-suit,
+.boot-reactor {
+  width: min(58vmin, 520px);
+  height: min(58vmin, 520px);
+  overflow: visible;
 }
 
-.log-line {
-  opacity: 0;
-  transform: translateX(-20px);
+.boot-ring {
+  fill: none;
+  stroke: var(--accent, #22d3ee);
+  opacity: 0.8;
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.5));
+}
+.boot-name {
+  fill: #eafcff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px;
+  text-anchor: middle;
+  dominant-baseline: middle;
 }
 
-.avni-title {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  text-shadow: 0 0 32px currentColor, 0 0 64px currentColor;
+.boot-wire {
+  fill: none;
+  stroke: var(--accent, #22d3ee);
+  stroke-width: 1.4;
+  opacity: 0.9;
+  filter: drop-shadow(0 0 3px rgba(34, 211, 238, 0.55));
+}
+.boot-wire-dim { opacity: 0.4; stroke-width: 1; }
+.boot-suit-fig { filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.4)); }
+.boot-tag {
+  fill: var(--accent, #22d3ee);
+  opacity: 0.55;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-anchor: middle;
 }
 
-.avni-subtitle {
-  font-size: clamp(0.6rem, 1.2vw, 0.8rem);
-  letter-spacing: 0.25em;
+.boot-r-seg {
+  stroke: rgba(34, 211, 238, 0.3);
+  stroke-width: 8;
 }
-
-.beat3-subtitle {
-  font-size: clamp(0.55rem, 1vw, 0.7rem);
-  letter-spacing: 0.18em;
+.boot-r-on { stroke: #dffbff; filter: drop-shadow(0 0 8px var(--accent, #22d3ee)); }
+.boot-r-ring {
+  fill: none;
+  stroke: var(--accent, #22d3ee);
+  stroke-width: 2;
+  opacity: calc(0.3 + var(--glow, 1) * 0.6);
 }
-
-.beat4-label {
-  font-size: clamp(0.55rem, 1vw, 0.7rem);
-  letter-spacing: 0.2em;
+.boot-r-ring-in { stroke-width: 1.5; opacity: calc(0.2 + var(--glow, 1) * 0.5); }
+.boot-r-tri {
+  fill: rgba(34, 211, 238, calc(var(--glow, 1) * 0.45));
+  stroke: #eafcff;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 calc(var(--glow, 1) * 26px) var(--accent, #22d3ee));
+}
+.boot-r-tri-in {
+  fill: rgba(234, 252, 255, calc(var(--glow, 1) * 0.6));
+  stroke: none;
+}
+.boot-r-v {
+  fill: none;
+  stroke: #05161a;
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: var(--glow, 1);
 }
 
 /* ─── Scene / 3D Canvas ────────────────────────────────────── */

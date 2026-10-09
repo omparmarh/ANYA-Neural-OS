@@ -55,7 +55,7 @@ function Corner({ position, accent, reducedMotion }) {
 }
 
 // Top HUD bar
-function HudTop({ phase, statusText, accent, reducedMotion }) {
+function HudTop({ phase, statusText, accent, reducedMotion, onExit }) {
   const isOnline = phase !== Phase.OFFLINE && phase !== Phase.BOOT;
 
   return (
@@ -142,19 +142,57 @@ function HudTop({ phase, statusText, accent, reducedMotion }) {
         </motion.span>
       </div>
 
-      {/* Right: accent indicator */}
-      <motion.div
-        className="hud-accent-indicator"
-        style={{
-          width: 12,
-          height: 12,
-          borderRadius: '3px',
-          background: `linear-gradient(135deg, ${accent} 0%, ${accent}88 100%)`,
-          boxShadow: `0 0 16px ${accent}88`,
-        }}
-        animate={{ rotateZ: [0, 360] }}
-        transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-      />
+      {/* Right side: Exit Live Mode button */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', pointerEvents: 'auto' }}>
+        {onExit && (
+          <button
+            onClick={onExit}
+            title="Exit Live Mode (Esc)"
+            style={{
+              background: 'rgba(10, 14, 26, 0.85)',
+              border: `1px solid ${accent}`,
+              color: accent,
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontFamily: 'var(--font-mono, monospace)',
+              fontSize: '10px',
+              fontWeight: 600,
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              boxShadow: `0 0 16px ${accent}33`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = `${accent}22`;
+              e.currentTarget.style.boxShadow = `0 0 20px ${accent}66`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(10, 14, 26, 0.85)';
+              e.currentTarget.style.boxShadow = `0 0 16px ${accent}33`;
+            }}
+          >
+            <span>✕ EXIT</span>
+            <span style={{ opacity: 0.5 }}>[ESC]</span>
+          </button>
+        )}
+
+        <motion.div
+          className="hud-accent-indicator"
+          style={{
+            width: 12,
+            height: 12,
+            borderRadius: '3px',
+            background: `linear-gradient(135deg, ${accent} 0%, ${accent}88 100%)`,
+            boxShadow: `0 0 16px ${accent}88`,
+          }}
+          animate={{ rotateZ: [0, 360] }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+        />
+      </div>
     </motion.div>
   );
 }
@@ -584,7 +622,7 @@ function FxLayer({ effects, accent, reducedMotion }) {
 }
 
 // Main HUD component
-export default function Hud() {
+export default function Hud({ onExit }) {
   const phase = useStore((s) => s.phase);
   const statusText = useStore((s) => s.statusText);
   const accent = useStore((s) => s.accent);
@@ -593,6 +631,17 @@ export default function Hud() {
   const interimTranscript = useStore((s) => s.interimTranscript);
   const effects = useStore((s) => s.effects);
   const reducedMotion = useStore((s) => s.reducedMotion);
+
+  // Escape key exits live mode
+  React.useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') {
+        onExit?.();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onExit]);
 
   // messages and toolName not available via store in this setup — skip log panel in live mode
   const messages = [];
@@ -606,8 +655,8 @@ export default function Hud() {
       <Corner position="bl" accent={accent} reducedMotion={reducedMotion} />
       <Corner position="br" accent={accent} reducedMotion={reducedMotion} />
 
-      {/* Top bar */}
-      <HudTop phase={phase} statusText={statusText} accent={accent} reducedMotion={reducedMotion} />
+      {/* Top bar with onExit */}
+      <HudTop phase={phase} statusText={statusText} accent={accent} reducedMotion={reducedMotion} onExit={onExit} />
 
       {/* Left rail - Systems */}
       <RailLeft phase={phase} accent={accent} reducedMotion={reducedMotion} />
