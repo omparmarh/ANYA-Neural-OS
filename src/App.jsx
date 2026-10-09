@@ -1232,22 +1232,8 @@ export default function App() {
     );
   }
 
-  if (isAuthLoading) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-        <div className="w-full max-w-md bg-obsidian-900 border border-cyan-500/30 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="p-6 text-center">
-            <div className="flex items-center justify-center mb-4">
-              <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
-            </div>
-            <h3 className="text-sm font-bold tracking-wider uppercase text-white">
-              Loading AVNI...
-            </h3>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Auth state updates reactively — no blocking gate needed after splash.
+  // If auth is still loading, the main app renders; AuthModal appears when auth resolves.
 
 
   return (
