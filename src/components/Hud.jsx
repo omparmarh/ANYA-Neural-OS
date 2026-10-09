@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore, Phase } from '../store';
 
@@ -592,27 +591,11 @@ export default function Hud() {
   const isListening = useStore((s) => s.isListening);
   const interimTranscript = useStore((s) => s.interimTranscript);
   const effects = useStore((s) => s.effects);
-  const threads = useStore((s) => s.threads);
-  const activeThreadId = useStore((s) => s.activeThreadId);
   const reducedMotion = useStore((s) => s.reducedMotion);
 
-  // Get active thread messages
-  const activeThread = useMemo(() => {
-    return threads.find(t => t.id === activeThreadId);
-  }, [threads, activeThreadId]);
-
-  const messages = activeThread?.messages || [];
-
-  // Determine current tool name when tooling
-  const toolName = useMemo(() => {
-    if (phase !== Phase.TOOLING) return null;
-    // Check the last assistant message for tool widgets
-    const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
-    if (lastAssistant?.toolWidgets?.length) {
-      return lastAssistant.toolWidgets[0]?.tool || 'SYSTEMS';
-    }
-    return 'SYSTEMS';
-  }, [phase, messages]);
+  // messages and toolName not available via store in this setup — skip log panel in live mode
+  const messages = [];
+  const toolName = null;
 
   return (
     <>
@@ -646,7 +629,8 @@ export default function Hud() {
       {/* FX overlays */}
       <FxLayer effects={effects} accent={accent} reducedMotion={reducedMotion} />
 
-      <style jsx global>{`
+      {/* HUD keyframe animations injected as plain style tag */}
+      <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
